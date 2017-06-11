@@ -10,10 +10,10 @@ server: compServer runServer
 client: compClient runClient
 
 compClient:
-	gcc -o gameClient main/gameClient.c lib/client.c
+	gcc -o gameClient main/gameClient.c lib/client.c -lncurses
 
 compServer:
-	gcc -o gameServer main/gameServer.c lib/server.c
+	gcc -o gameServer main/gameServer.c lib/server.c -lncurses
 
 runClient:
 	./$(clientName)

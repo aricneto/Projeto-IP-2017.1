@@ -1,3 +1,4 @@
 *.exe
 gameClient
 gameServer
+.vscode/

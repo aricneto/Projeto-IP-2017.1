@@ -1,72 +1,61 @@
-#include "../lib/client.h"
+#include <ncurses.h>
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <stdbool.h>
 
-#define MAP_X 50
-#define MAP_Y 15
-
-#define RED   "\x1B[31m"
-#define GRN   "\x1B[32m"
-#define YEL   "\x1B[33m"
-#define BLU   "\x1B[34m"
-#define MAG   "\x1B[35m"
-#define CYN   "\x1B[36m"
-#define WHT   "\x1B[37m"
-#define RESET "\x1B[0m"
-
-enum {
-    Y,
-    X
-};
-
-typedef struct charac {
-    int position[2];
-} Character;
-
-void drawMap(char **map, Character player) {
-    system("clear");
-    for (int i = 0; i < MAP_Y; i++) {
-        for (int j = 0; j < MAP_X; j++) {
-            if (player.position[Y] == i && player.position[X] == j)
-                map[i][j] = '@';
-            else
-                map[i][j] = ',';
-        }
-        printf(RED "%s\n" RESET, map[i]);
-    }
-}
+#define MAX_SCREEN_SIZE_Y 33
+#define MAX_SCREEN_SIZE_X 93
 
 int main() {
+	WINDOW *game_window;
+	FILE *map_screen;
+	FILE *map_color;
 
-    Character player;
-    player.position[X] = 0;
-    player.position[Y] = 0;
+	// TODO: should this be dynamic?
+	char map_buff[MAX_SCREEN_SIZE_X + 2];
+	char map_color_buff[MAX_SCREEN_SIZE_X + 2];
 
-    char **map = (char **) malloc(MAP_Y * sizeof(char *));
-    for (int i = 0; i < MAP_Y; i++) {
-        map[i] = (char *) malloc(MAP_X * sizeof(char));
-    }
+	map_screen = fopen("res/map_screen.rtxt", "r");
+	map_color = fopen("res/map_color.rtxt", "r");
 
-    while (true) {
-        char input = getch();
-        switch (input) {
-            case 'w':
-            player.position[Y] -= 1;
-            break;
-            case 's':
-            player.position[Y] += 1;
-            break;
-            case 'd':
-            player.position[X] += 1;
-            break;
-            case 'a':
-            player.position[X] -= 1;
-            break;
-        }
-        drawMap(map, player);
-    }
-    
+	// start curses
+	initscr();
+	// disable line buffering
+	raw();
+	// don't echo keys
+	noecho();
 
+	// TODO: put this on map_color.rtxt file
+	start_color();
+	init_pair(1, COLOR_WHITE, COLOR_BLACK);
+	init_pair(2, COLOR_RED, COLOR_BLACK);
+	init_pair(3, COLOR_GREEN, COLOR_BLACK);
+	init_pair(4, COLOR_YELLOW, COLOR_BLACK);
+
+	// create a new window for the game screen
+	game_window = newwin(MAX_SCREEN_SIZE_Y, MAX_SCREEN_SIZE_X, 0, 0);
+
+	for (int i = 0; i < MAX_SCREEN_SIZE_Y; i++) {
+		fgets(map_buff, MAX_SCREEN_SIZE_X, map_screen);
+		fgets(map_color_buff, MAX_SCREEN_SIZE_X, map_color);
+		strtok(map_color_buff, "\n");
+		for (int j = 0; j < MAX_SCREEN_SIZE_X - 4; j++) {
+			mvwaddch(game_window, i + 1, j + 2, map_buff[j] | COLOR_PAIR( (int) (map_color_buff[j] - 48)) );
+		}
+	}
+
+	fclose(map_screen);
+	fclose(map_color);
+
+	// surround game window with a box
+	box(game_window, 0 , 0);
+
+	refresh();
+	wrefresh(game_window);
+
+    getch();
+
+	endwin();
+
+	return 0;
 }
