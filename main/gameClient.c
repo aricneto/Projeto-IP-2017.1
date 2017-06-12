@@ -1,5 +1,6 @@
 #include <ncurses.h>
 #include <string.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -9,10 +10,11 @@
 #define MAP_X 92
 
 typedef struct entity {
-	int pos[2];
-	int hp;
-	char icon;
-	int color;
+	unsigned char id;
+	unsigned char pos[2];
+	unsigned char hp;
+	unsigned char icon;
+	unsigned char color;
 } Entity;
 
 typedef struct map_s {
