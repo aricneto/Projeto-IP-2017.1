@@ -3,21 +3,38 @@
 
 #include <stdbool.h>
 
+// max number of entities allowed to exist
 #define MAX_ENTITIES 50
-#define PACKET_WAIT 30
 
+// delay between each packet sent and received in milliseconds
+#define PACKET_WAIT 0
+
+// map size
+// should be screen_size + 2 to accomodate borders
+#define MAP_Y 33
+#define MAP_X 92
+
+typedef struct map_s {
+	char **screen;
+	char **color;
+} Map;
+
+// constants for entity
 enum {
-	POS_X,
-	POS_Y
+	POS_Y,
+	POS_X
 };
 
+/*
+ * Represents an entity
+ */
 typedef struct entity {
-	bool isAlive;
 	unsigned char id;
 	short int pos[2];
-	unsigned char hp;
 	unsigned char icon;
-	int color;
+	unsigned char color;
+	bool isAlive;
+	unsigned char hp;
 } Entity;
 
 #endif

@@ -6,20 +6,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// map size
-// should be screen_size + 2 to accomodate borders
-#define MAP_Y 33
-#define MAP_X 92
-
-typedef struct map_s {
-	char **screen;
-	char **color;
-} Map;
-
 void readMap(Map *map);
 void drawMap(Map *map, WINDOW *window);
 void drawEntity(WINDOW *window, Entity entity);
-void redrawMapSpot(Map *map, WINDOW *window, int x, int y);
+void redrawMapSpot(Map *map, WINDOW *window, int y, int x);
 
 int main() {
 	WINDOW *game_window;
@@ -67,11 +57,7 @@ int main() {
 	// hide cursor
 	curs_set(0);
 
-	/* create a new window for the game screen
-	   why the -1?
-	   if it's not there there's a space at the
-	   end of the map.
-	*/
+	// create a new window for the game screen
 	game_window = newwin(MAP_Y, MAP_X - 1, 0, 0);
 	debug_window = newwin(5, MAP_X - 1, MAP_Y, 0);
 	box(debug_window, 0, 0);
@@ -114,19 +100,19 @@ int main() {
 		switch(k) {
 			case KEY_UP:
 				player->pos[0]--;
-				sendMsgToServer(player, sizeof(player));
+				sendMsgToServer(player, sizeof(Entity));
 				break;
 			case KEY_DOWN:
 				player->pos[0]++;
-				sendMsgToServer(player, sizeof(player));
+				sendMsgToServer(player, sizeof(Entity));
 				break;
 			case KEY_LEFT:
 				player->pos[1]--;
-				sendMsgToServer(player, sizeof(player));
+				sendMsgToServer(player, sizeof(Entity));
 				break;
 			case KEY_RIGHT:
 				player->pos[1]++;
-				sendMsgToServer(player, sizeof(player));
+				sendMsgToServer(player, sizeof(Entity));
 				break;
 			case KEY_BACKSPACE:
 				quit = true;
@@ -142,14 +128,17 @@ int main() {
 			mvwprintw(debug_window, 1, 1, "color: %d", player->color);
 
 			for (int i = 0; i < MAX_ENTITIES; i++) {
-				redrawMapSpot(game_map, game_window, entityDataOld[i].pos[POS_X], entityDataOld[i].pos[POS_Y]);
+				redrawMapSpot(game_map, game_window, entityDataOld[i].pos[POS_Y], entityDataOld[i].pos[POS_X]);
+			}
+
+			for (int i = 0; i < MAX_ENTITIES; i++) {
+				entityDataOld[i] = entityData[i];
 				if (entityData[i].isAlive)
 					drawEntity(game_window, entityData[i]);
 			}
 			
 			wrefresh(game_window);
 			wrefresh(debug_window);
-			entityDataOld = entityData;
 		}
 	}
 
@@ -199,7 +188,7 @@ void drawMap(Map *map, WINDOW *window) {
 	present on the map at this coordinate, so we don't have
 	to redraw the entire map every frame.
 */
-void redrawMapSpot(Map *map, WINDOW *window, int x, int y) {
+void redrawMapSpot(Map *map, WINDOW *window, int y, int x) {
 	mvwaddch(window, y + 1, x + 1, map->screen[y][x] | COLOR_PAIR( (int) (map->color[y][x] - '0')) );
 }
 
