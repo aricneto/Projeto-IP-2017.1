@@ -87,30 +87,3 @@ int recvMsgFromServer(void* msg, int option){
 	msg_ret = read(network_socket, msg, size);
 	return msg_ret;
 }
-
-/*
-	modified getch();
-	waits GETCH_TIMEOUT ms for key to be pressed, if it is not, returns NO_KEY_PRESSED
-*/
-
-char getch(){
-	struct termios oldt, newt;
-    int ch;
-    struct pollfd mypoll = { STDIN_FILENO, POLLIN|POLLPRI };
-    tcgetattr(STDIN_FILENO, &oldt); // saving old config in oldt
-
-    newt = oldt;
-    newt.c_lflag &= ~(ICANON | ECHO);
-
-    tcsetattr(STDIN_FILENO, TCSANOW, &newt); // setting new config
-
-    if ( poll(&mypoll, 1, GETCH_TIMEOUT)){ // if key is pressed before timeout
-	    ch = getchar();
-	}
-	else{
-		ch = NO_KEY_PRESSED;
-	}
-
-	tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-    return ch;
-}

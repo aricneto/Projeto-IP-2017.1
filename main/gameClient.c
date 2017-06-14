@@ -1,3 +1,5 @@
+#include "../lib/client.h"
+#include "common.h"
 #include <ncurses.h>
 #include <string.h>
 #include <stdbool.h>
@@ -9,14 +11,6 @@
 #define MAP_Y 33
 #define MAP_X 92
 
-typedef struct entity {
-	unsigned char id;
-	unsigned char pos[2];
-	unsigned char hp;
-	unsigned char icon;
-	unsigned char color;
-} Entity;
-
 typedef struct map_s {
 	char **screen;
 	char **color;
@@ -25,17 +19,18 @@ typedef struct map_s {
 void readMap(Map *map);
 void drawMap(Map *map, WINDOW *window);
 void drawEntity(WINDOW *window, Entity entity);
+void redrawMapSpot(Map *map, WINDOW *window, int x, int y);
 
 int main() {
 	WINDOW *game_window;
+	WINDOW *debug_window;
 	Map *game_map = (Map *) malloc(sizeof(Map));
 
+	Entity *entityData = (Entity *) malloc(MAX_ENTITIES * sizeof(Entity));
+	Entity *entityDataOld = (Entity *) malloc(MAX_ENTITIES * sizeof(Entity));
+
 	// initialize char
-	Entity player;
-	player.pos[0] = 25;
-	player.pos[1] = 50;
-	player.icon = '@';
-	player.color = 5;
+	Entity *player = (Entity *) malloc(sizeof(Entity));
 
 	// allocate map memory
 	game_map->screen = (char **) malloc(MAP_Y * sizeof(char *));
@@ -45,6 +40,24 @@ int main() {
 		game_map->color[i] = (char *) malloc(MAP_X * sizeof(char));
 	}
 
+	int playerId;
+	char serverIP[30] = "127.0.0.1";
+	char name[13] = "Testificate";
+
+	/*
+	printf("Please enter the server IP: ");
+	scanf("%s", serverIP);
+
+	printf("Please enter your name: ");
+	scanf("%s", name);
+	*/
+
+	connectToServer(serverIP);
+	sendMsgToServer(name, strlen(name) + 1);
+	recvMsgFromServer(player, WAIT_FOR_IT);
+
+	playerId = player->id;
+	
 	// start curses
 	initscr();
 	// disable line buffering
@@ -55,16 +68,20 @@ int main() {
 	curs_set(0);
 
 	/* create a new window for the game screen
-	   why the -1? i don't know either. 
+	   why the -1?
 	   if it's not there there's a space at the
 	   end of the map.
 	*/
 	game_window = newwin(MAP_Y, MAP_X - 1, 0, 0);
+	debug_window = newwin(5, MAP_X - 1, MAP_Y, 0);
+	box(debug_window, 0, 0);
 
 	// enable special keys
 	keypad(game_window, true);
-	// don't wait for new key
-	wtimeout(game_window, 3000);
+	// wait for packet or key press
+	wtimeout(game_window, PACKET_WAIT);
+	wtimeout(debug_window, PACKET_WAIT);
+	timeout(PACKET_WAIT);
 
 	// TODO: put this on map_color.rtxt file
 	start_color();
@@ -81,7 +98,7 @@ int main() {
 
 	// draw the map
 	drawMap(game_map, game_window);
-	drawEntity(game_window, player);
+	drawEntity(game_window, *player);
 	wrefresh(game_window);
 
 	int k;
@@ -89,23 +106,27 @@ int main() {
 	// DEBUG
 	bool quit = false;
 
+	drawMap(game_map, game_window);
+
 	while (true) {
 		k = wgetch(game_window);
 
-		drawMap(game_map, game_window);
-
 		switch(k) {
 			case KEY_UP:
-				player.pos[0]--;
+				player->pos[0]--;
+				sendMsgToServer(player, sizeof(player));
 				break;
 			case KEY_DOWN:
-				player.pos[0]++;
+				player->pos[0]++;
+				sendMsgToServer(player, sizeof(player));
 				break;
 			case KEY_LEFT:
-				player.pos[1]--;
+				player->pos[1]--;
+				sendMsgToServer(player, sizeof(player));
 				break;
 			case KEY_RIGHT:
-				player.pos[1]++;
+				player->pos[1]++;
+				sendMsgToServer(player, sizeof(player));
 				break;
 			case KEY_BACKSPACE:
 				quit = true;
@@ -115,8 +136,21 @@ int main() {
 		if (quit)
 			break;
 
-		drawEntity(game_window, player);
-		wrefresh(game_window);
+		if (recvMsgFromServer(entityData, DONT_WAIT) != NO_MESSAGE) {
+			*player = entityData[player->id];
+
+			mvwprintw(debug_window, 1, 1, "color: %d", player->color);
+
+			for (int i = 0; i < MAX_ENTITIES; i++) {
+				redrawMapSpot(game_map, game_window, entityDataOld[i].pos[POS_X], entityDataOld[i].pos[POS_Y]);
+				if (entityData[i].isAlive)
+					drawEntity(game_window, entityData[i]);
+			}
+			
+			wrefresh(game_window);
+			wrefresh(debug_window);
+			entityDataOld = entityData;
+		}
 	}
 
 	endwin();
@@ -166,7 +200,7 @@ void drawMap(Map *map, WINDOW *window) {
 	to redraw the entire map every frame.
 */
 void redrawMapSpot(Map *map, WINDOW *window, int x, int y) {
-	mvwaddch(window, x + 1, y + 1, map->screen[x][y] | COLOR_PAIR( (int) (map->color[x][y] - '0')) );
+	mvwaddch(window, y + 1, x + 1, map->screen[y][x] | COLOR_PAIR( (int) (map->color[y][x] - '0')) );
 }
 
 /*

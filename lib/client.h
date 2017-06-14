@@ -10,6 +10,5 @@
 void connectToServer(const char *server_IP);
 int sendMsgToServer(void *msg, int size);
 int recvMsgFromServer(void *msg, int option);
-char getch();
 
 #endif
