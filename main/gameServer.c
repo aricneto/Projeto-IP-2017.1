@@ -62,29 +62,30 @@ int main(){
 			player->icon = '@';
 			player->color = 5;
 			
+			// entityData[0] to entityData[MAX_CLIENTS] are reserved for players
 			entityData[id] = *player;
 
-			// send id to client
+			// send player entity to client
 			sendMsgToClient(player, sizeof(Entity), id);
 
-
-			//broadcast(str_buffer, strlen(str_buffer) + 1);
-			
 			printw("%s connected id = %d\n", client_names[id], id);
 		}
 
+		// receive a message from client
 		struct msg_ret_t msg_ret = recvMsg(entityBuffer);
 		if(msg_ret.status == MESSAGE_OK){
-
+			// if player doesn't walk into a wall, update entityData array with new
+			// entityBuffer.
+			// this part should be redone as to update each part of an entity separately
 			if (!hitbox(mapHitbox, entityBuffer->pos[POS_Y], entityBuffer->pos[POS_X])) {
 				entityData[msg_ret.client_id] = *entityBuffer;
+
+				// print message on server console
 				mvprintw(entityBuffer->id + 5, 0,"%d pos: %.2d %.2d", entityBuffer->id, entityBuffer->pos[POS_Y], entityBuffer->pos[POS_X]);
 			}
-			//broadcast(str_buffer, strlen(str_buffer) + 1);
 		}
 		else if(msg_ret.status == DISCONNECT_MSG){
 			printw("%s disconnected, id = %d is free\n", client_names[msg_ret.client_id], msg_ret.client_id);
-			//broadcast(str_buffer, strlen(str_buffer) + 1);
 		}
 
 
@@ -95,6 +96,8 @@ int main(){
 		}
 		
 		refresh();
+
+		// send entity data to clients
 		broadcast(entityData, MAX_ENTITIES * sizeof(Entity));
 	}
 
@@ -106,7 +109,7 @@ int main(){
 bool hitbox(char **map, int y, int x) {
 	return (map[y][x] - '0' == 1)
 		|| (y > MAP_Y - 3)
-		|| (y < 1)
+		|| (y < 0)
 		|| (x > MAP_X - 4)
 		|| (x < 0);
 }

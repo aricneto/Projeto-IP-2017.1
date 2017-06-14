@@ -99,19 +99,19 @@ int main() {
 
 		switch(k) {
 			case KEY_UP:
-				player->pos[0]--;
+				moveEntity(player, UP);
 				sendMsgToServer(player, sizeof(Entity));
 				break;
 			case KEY_DOWN:
-				player->pos[0]++;
+				moveEntity(player, DOWN);
 				sendMsgToServer(player, sizeof(Entity));
 				break;
 			case KEY_LEFT:
-				player->pos[1]--;
+				moveEntity(player, LEFT);
 				sendMsgToServer(player, sizeof(Entity));
 				break;
 			case KEY_RIGHT:
-				player->pos[1]++;
+				moveEntity(player, RIGHT);
 				sendMsgToServer(player, sizeof(Entity));
 				break;
 			case KEY_BACKSPACE:
@@ -119,24 +119,30 @@ int main() {
 				break;
 		}
 		
+		// if backspace was pressed
 		if (quit)
 			break;
 
 		if (recvMsgFromServer(entityData, DONT_WAIT) != NO_MESSAGE) {
+			// update local player entity
 			*player = entityData[player->id];
 
+			// debug
 			mvwprintw(debug_window, 1, 1, "color: %d", player->color);
 
+			// erase entities at previous frame
 			for (int i = 0; i < MAX_ENTITIES; i++) {
 				redrawMapSpot(game_map, game_window, entityDataOld[i].pos[POS_Y], entityDataOld[i].pos[POS_X]);
 			}
 
+			// redraw entities at new positions
 			for (int i = 0; i < MAX_ENTITIES; i++) {
 				entityDataOld[i] = entityData[i];
 				if (entityData[i].isAlive)
 					drawEntity(game_window, entityData[i]);
 			}
 			
+			// refresh windows
 			wrefresh(game_window);
 			wrefresh(debug_window);
 		}

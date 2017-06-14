@@ -19,6 +19,13 @@ typedef struct map_s {
 	char **color;
 } Map;
 
+enum {
+	UP,
+	DOWN,
+	LEFT,
+	RIGHT
+};
+
 // constants for entity
 enum {
 	POS_Y,
@@ -26,7 +33,7 @@ enum {
 };
 
 /*
- * Represents an entity
+ * represents an entity
  */
 typedef struct entity {
 	unsigned char id;
@@ -36,5 +43,31 @@ typedef struct entity {
 	bool isAlive;
 	unsigned char hp;
 } Entity;
+
+
+/*
+ * updates an entity's position respecting the constraints of the map
+ * hitbox is also checked server-side
+ */
+void moveEntity(Entity *entity, int direction) {
+	switch(direction) {
+		case UP:
+			if (entity->pos[POS_Y] - 1 >= 0)
+				entity->pos[POS_Y]--;
+			break;
+		case DOWN:
+			if (entity->pos[POS_Y] + 1 < MAP_Y)
+				entity->pos[POS_Y]++;
+			break;
+		case LEFT:
+			if (entity->pos[POS_X] - 1 >= 0)
+				entity->pos[POS_X]--;
+			break;
+		case RIGHT:
+			if (entity->pos[POS_X] + 1 < MAP_X)
+				entity->pos[POS_X]++;
+			break;
+	}
+}
 
 #endif
