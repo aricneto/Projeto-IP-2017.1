@@ -1,7 +1,7 @@
 #ifndef SERVER_H
 #define SERVER_H
 
-#define MAX_CLIENTS 100
+#define MAX_CLIENTS 5
 
 #define MESSAGE_OK 0
 #define NO_CONNECTION -1
