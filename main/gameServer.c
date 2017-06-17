@@ -8,6 +8,7 @@
 #include <pthread.h>
 #include <time.h>
 #include <unistd.h>
+#include <math.h>
 
 // TODO: implement time spent to beat game?
 
@@ -17,6 +18,8 @@
 void readMapHitbox(char **map);
 bool hitbox(char **map, int y, int x);
 void *mobLogicThread(void *entity_data);
+int findClosestPlayer(Entity *entity_data, Entity *entity);
+void pathfind(Entity *entity, Entity *target, int distance);
 
 int main(){
 	char client_names[MAX_GAME_CLIENTS][MAX_LOGIN_SIZE];
@@ -45,9 +48,8 @@ int main(){
 	curs_set(0);
 	// enable special keys
 	keypad(stdscr, true);
-	// waits for a key for PACKET_WAIT milliseconds.
-	// that means it sends a packet every PACKET_WAIT
-	timeout(PACKET_WAIT);
+	
+	timeout(0);
 
 	pthread_t mob_thread;
 	pthread_create(&mob_thread, NULL, &mobLogicThread, (void *) entity_data);
@@ -57,6 +59,7 @@ int main(){
 	//box(0, 0);
 
 	while(true){
+		usleep(PACKET_WAIT);
 		int id = acceptConnection();
 
 		if(id != NO_CONNECTION){
@@ -120,13 +123,13 @@ void *mobLogicThread(void *entityData) {
 
 	int loops = 0;
     while(true) {
-        sleep(1);
+        usleep(AI_DELAY);
 		// how many entities have been spawned in this cycle
 		bool entitiesSpawned = 0;
 		// 0 to MAX_CLIENTS entity ids are reserved for players
         for (int i = MAX_CLIENTS; i < MAX_ENTITIES; i++) {
 			if (entity_data[i].isAlive) {
-				// update AI function based on type
+				pathfind(&entity_data[i], &entity_data[findClosestPlayer(entity_data, &entity_data[i])], 0);
 			} else if ( !entity_data[i].isAlive && (rand() % 200) <= 3 && entitiesSpawned < 5) {
 				entity_data[i] = newMonster(BERSERK, rand() % MAP_Y, rand() % MAP_X);
 				entitiesSpawned++;
@@ -136,6 +139,53 @@ void *mobLogicThread(void *entityData) {
     return 0;
 }
 
+/*
+ * uses pythagoras to get a hypotenuse
+ */
+double hypotenuse(int x, int y) {
+	return sqrt((double) ((x * x) + (y * y)));
+}
+
+/*
+ * finds closest player to an entity
+ */
+int findClosestPlayer(Entity *entity_data, Entity *entity) {
+	int closestPlayer = 0;
+	double closestHypotenuse = hypotenuse( abs(entity_data[closestPlayer].pos[POS_X] - entity->pos[POS_X]),
+						  				   abs(entity_data[closestPlayer].pos[POS_Y] - entity->pos[POS_Y]));
+	for (int i = 1; i < MAX_CLIENTS; i++) {
+		// hypothenuse of (player_x - entity_x), (player_y - entity_y)
+		if (hypotenuse( abs(entity_data[i].pos[POS_X] - entity->pos[POS_X]), 
+					    abs(entity_data[i].pos[POS_Y] - entity->pos[POS_Y])) < closestHypotenuse) {
+			closestPlayer = i;
+			closestHypotenuse = hypotenuse( abs(entity_data[closestPlayer].pos[POS_X] - entity->pos[POS_X]),
+						  				    abs(entity_data[closestPlayer].pos[POS_Y] - entity->pos[POS_Y]));
+		}
+	}
+
+	return closestPlayer;
+}
+
+
+/*
+ * very primitive pathfinding that moves entity to target
+ * distance is the closest distance the entity should be from target
+ */
+void pathfind(Entity *entity, Entity *target, int distance) {
+	if (entity->pos[POS_X] + distance < target->pos[POS_X])
+		entity->pos[POS_X]++;
+	else
+		entity->pos[POS_X]--;
+	
+	if (entity->pos[POS_Y] + distance < target->pos[POS_Y])
+		entity->pos[POS_Y]++;
+	else
+		entity->pos[POS_Y]--;
+}
+
+/*
+ * returns true if entity hits a hitbox
+ */
 bool hitbox(char **map, int y, int x) {
 	return (map[y][x] - '0' == 1)
 		|| (y > MAP_Y - 3)

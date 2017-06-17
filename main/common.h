@@ -6,8 +6,11 @@
 // max number of entities allowed to exist
 #define MAX_ENTITIES 50
 
-// delay between each packet sent and received in milliseconds
-#define PACKET_WAIT 0
+// delay between each packet sent in microseconds
+#define PACKET_WAIT 33333
+
+// entity AI delay in microseconds
+#define AI_DELAY 400000
 
 // map size
 // should be screen_size + 2 to accomodate borders
@@ -49,8 +52,8 @@ enum {
  * represents an entity
  */
 typedef struct entity {
-	short int id;			// id used by players
-	short int pos[2];		// entity position
+	unsigned char id;			// id used by players
+	unsigned char pos[2];		// entity position
 	bool isAlive;			// if entity is alive
 	unsigned char type; 	// entity type (WARRIOR, RUNNER, etc)
 	char icon;				// entity icon displayed in map
@@ -62,7 +65,7 @@ typedef struct entity {
 /*
  * creates a new entity
  */
-Entity newEntity(unsigned char type, short int initPosY, short int initPosX, 
+Entity newEntity(unsigned char type, unsigned char initPosY, unsigned char initPosX, 
 					char icon, unsigned char color, 
 					unsigned char initHp) {
 	Entity entity;
@@ -79,7 +82,7 @@ Entity newEntity(unsigned char type, short int initPosY, short int initPosX,
  * creates an entity with predefined aspects
  */
 Entity newMonster(unsigned char type, 
-					short int initPosY, short int initPosX) {
+					unsigned char initPosY, unsigned char initPosX) {
 	switch (type) {
 		case RUNNER:
 			return newEntity(RUNNER, initPosY, initPosX, 'r', 0, 5);
@@ -93,8 +96,8 @@ Entity newMonster(unsigned char type,
 /*
  * creates a new player entity
  */
-Entity newPlayer(unsigned char type, short int id, 
-					short int initPosY, short int initPosX) {
+Entity newPlayer(unsigned char type, unsigned char id, 
+					unsigned char initPosY, unsigned char initPosX) {
 	Entity player;
 	switch (type) {
 		case WARRIOR:

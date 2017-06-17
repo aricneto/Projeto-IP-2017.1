@@ -18,7 +18,7 @@ compTest:
 	gcc -o gameClientTest main/gameClient.c lib/client.c -lncurses
 
 compServer:
-	gcc -o gameServer main/gameServer.c lib/server.c -lncurses -pthread
+	gcc -o gameServer main/gameServer.c lib/server.c -lncurses -pthread -lm
 
 runClient:
 	./$(clientName)

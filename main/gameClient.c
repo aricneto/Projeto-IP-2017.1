@@ -64,10 +64,10 @@ int main() {
 
 	// enable special keys
 	keypad(game_window, true);
-	// wait for packet or key press
-	wtimeout(game_window, PACKET_WAIT);
-	wtimeout(debug_window, PACKET_WAIT);
-	timeout(PACKET_WAIT);
+	// wait for key press
+	wtimeout(game_window, 0);
+	wtimeout(debug_window, 0);
+	timeout(0);
 
 	// TODO: put this on map_color.rtxt file
 	start_color();
