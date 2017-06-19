@@ -10,7 +10,7 @@
 #define PACKET_WAIT 33333
 
 // entity AI delay in microseconds
-#define AI_DELAY 400000
+#define AI_DELAY 500000
 
 // map size
 // should be screen_size + 2 to accomodate borders
