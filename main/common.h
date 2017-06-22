@@ -1,6 +1,7 @@
 #ifndef HEAD_H
 #define HEAD_H
 
+#include <ncurses.h>
 #include <stdbool.h>
 
 // max number of entities allowed to exist
@@ -63,19 +64,20 @@ typedef struct entity {
 	unsigned char pos[2];   // entity position
 	bool isAlive;			// if entity is alive
 	unsigned char type; 	// entity type (WARRIOR, RUNNER, etc)
-	char icon;				// entity icon displayed in map
+	int icon;				/* entity icon displayed in map
+							   it's an int so we can add attributes
+							   to it using ncurses */
 	unsigned char color;	// entity icon color
 	unsigned char hp;		// entity health points
 	char attack[2];		    /* entity attack information 
 							   first arg (direction): 
 							   		-1 if entity isn't attacking.
-									direction enum if it is
+							   		direction enum if it is
 							   second arg (type)
 							   		attack type.
-									depends on the class.
-									eg. Warrior only has 1 attack (melee) (maybe add AoE?)
-									Archer has melee and ranged
-							*/
+							   depends on the class.
+							   eg. Warrior only has 1 attack (melee) (maybe add AoE?)
+							   Archer has melee and ranged */
 } Entity;
 
 
@@ -107,7 +109,7 @@ Entity newMonster(unsigned char type,
 		case CASTER:
 			return newEntity(CASTER, initPosY, initPosX, 'c', 7, 5);
 		case BERSERK:
-			return newEntity(BERSERK, initPosY, initPosX, 'B', 6, 20);
+			return newEntity(BERSERK, initPosY, initPosX, 'B', 2, 20);
 	}
 }
 

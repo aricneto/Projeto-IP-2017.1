@@ -1,6 +1,5 @@
 #include "../lib/client.h"
 #include "common.h"
-#include <ncurses.h>
 #include <string.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -209,4 +208,18 @@ void redrawMapSpot(Map *map, WINDOW *window, int y, int x) {
 */
 void drawEntity(WINDOW *window, Entity entity) {
 	mvwaddch(window, entity.pos[0] + 1, entity.pos[1] + 1, entity.icon | COLOR_PAIR(entity.color));
+}
+
+/* 
+	Draws a clientside hitmark
+*/
+void drawHitmark(WINDOW *window, int y, int x) {
+	mvwaddch(window, y, x, 'X' | COLOR_PAIR(6));
+}
+
+/* 
+	Draws a clientside melee hitmark from entity position
+*/
+void drawMeleeHitmark(WINDOW *window, Entity entity, int direction) {
+	//drawHitmark();
 }

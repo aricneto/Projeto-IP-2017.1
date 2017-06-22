@@ -1,6 +1,5 @@
 #include "../lib/server.h"
 #include "common.h"
-#include <ncurses.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -115,7 +114,7 @@ int main(){
 
 			if (entityBuffer->attack[ATK_DIR] >= 0) {
 				// getDamageFromAttackType() 
-				attack(entity_data, entityBuffer->attack[ATK_DIR], client_data.client_id, 1, 20);
+				attack(entity_data, entityBuffer->attack[ATK_DIR], client_data.client_id, 1, 5);
 				entityBuffer->attack[ATK_DIR] = NO_ATK;
 				mvprintw(1, 0, "hit!");
 			}
@@ -169,9 +168,9 @@ void *mobLogicThread(void *entityData) {
 			// refresh entity hitbox information
 			if (entity_data[i].isAlive) {
 				// if entity is alive, use pathfind() function to move it towards the closest player
-				// pathfind(&entity_data[i], &entity_data[findClosestPlayer(entity_data, &entity_data[i])], 3);
+				pathfind(&entity_data[i], &entity_data[findClosestPlayer(entity_data, &entity_data[i])], 1);
 			} else if ( !entity_data[i].isAlive && (rand() % 200) <= 3 && entitiesSpawned < 5) {
-				entity_data[i] = newMonster(BERSERK, rand() % (MAP_Y - 2), rand() % (MAP_X - 2));
+				entity_data[i] = newMonster(BERSERK, (rand() % (MAP_Y - 4) + 2), (rand() % (MAP_X - 4)) + 2);
 				entitiesSpawned++;
 			}
 			
