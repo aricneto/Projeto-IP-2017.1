@@ -27,7 +27,11 @@ enum {
 	UP,
 	DOWN,
 	LEFT,
-	RIGHT
+	RIGHT,
+	UP_LEFT,
+	UP_RIGHT,
+	DOWN_RIGHT,
+	DOWN_LEFT
 };
 
 // entity type constants
@@ -42,23 +46,36 @@ enum {
 	BERSERK  	 // high damage, slow
 };
 
-// constants for entity
-enum {
-	POS_Y,
-	POS_X
-};
+// entity constants
+// position
+#define POS_Y 0
+#define POS_X 1
+// attack
+#define ATK_DIR 0
+#define ATK_TYP 1
+#define NO_ATK -1
 
 /*
  * represents an entity
  */
 typedef struct entity {
-	unsigned char id;			// id used by players
-	unsigned char pos[2];		// entity position
+	unsigned char id;	    // id used by players
+	unsigned char pos[2];   // entity position
 	bool isAlive;			// if entity is alive
 	unsigned char type; 	// entity type (WARRIOR, RUNNER, etc)
 	char icon;				// entity icon displayed in map
 	unsigned char color;	// entity icon color
 	unsigned char hp;		// entity health points
+	char attack[2];		    /* entity attack information 
+							   first arg (direction): 
+							   		-1 if entity isn't attacking.
+									direction enum if it is
+							   second arg (type)
+							   		attack type.
+									depends on the class.
+									eg. Warrior only has 1 attack (melee) (maybe add AoE?)
+									Archer has melee and ranged
+							*/
 } Entity;
 
 
@@ -75,6 +92,7 @@ Entity newEntity(unsigned char type, unsigned char initPosY, unsigned char initP
 	entity.icon = icon;
 	entity.color = color;
 	entity.hp = initHp;
+	entity.attack[ATK_DIR] = NO_ATK;
 	return entity;
 }
 
@@ -112,6 +130,14 @@ Entity newPlayer(unsigned char type, unsigned char id,
 	}
 	player.id = id;
 	return player;
+}
+
+/*
+ * stages an attack and saves it on the entity
+ */
+void stageAttack(Entity *entity, int direction, int type) {
+	entity->attack[ATK_DIR] = direction;
+	entity->attack[ATK_TYP] = type;
 }
 
 /*

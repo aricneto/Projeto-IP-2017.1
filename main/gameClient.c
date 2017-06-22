@@ -117,6 +117,10 @@ int main() {
 				moveEntity(player, RIGHT);
 				sendMsgToServer(player, sizeof(Entity));
 				break;
+			case 'a':
+				stageAttack(player, UP, 0);
+				sendMsgToServer(player, sizeof(Entity));
+				break;
 			case KEY_BACKSPACE:
 				quit = true;
 				break;
@@ -155,7 +159,6 @@ int main() {
 
 	return 0;
 }
-
 
 /*
 	Reads map from resource files and saves it on a Map struct

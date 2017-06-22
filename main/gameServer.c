@@ -24,6 +24,10 @@ void *mobLogicThread(void *entity_data);
 int findClosestPlayer(Entity *entity_data, Entity *entity);
 void pathfind(Entity *entity, Entity *target, int distance);
 
+// attack functions
+void attack(Entity *entity_data, int direction, int idAttacker, int reach, int damage);
+bool dealDamage(Entity *entity, int damage);
+
 /*
 typedef struct {
 	Entity *entity_data[MAX_ENTITIES];
@@ -33,7 +37,7 @@ typedef struct {
 
 // TODO: tirar variaveis globais
 bool **mapHitbox;
-bool **entityHitbox;
+int **entityHitbox;
 
 
 int main(){
@@ -42,18 +46,17 @@ int main(){
 	Entity *entity_data = (Entity *) calloc(MAX_ENTITIES, sizeof(Entity));
 	Entity *entityBuffer = (Entity *) malloc(sizeof(Entity));
 
-	for (int i = 0; i < MAX_ENTITIES; i++)
-		entity_data->isAlive = false;
+	for (int i = 0; i < MAX_ENTITIES; i++) {
+		entity_data[i].isAlive = false;
+		//entity_data[i].id = i;
+	}
 
 	mapHitbox = (bool **) malloc(MAP_Y * sizeof(bool *));
-	for (int i = 0; i < MAP_Y; i++)
+	entityHitbox = (int **) malloc(MAP_Y * sizeof(int *));
+	for (int i = 0; i < MAP_Y; i++) {
 		mapHitbox[i] = (bool *) malloc(MAP_X * sizeof(bool));
-
-	entityHitbox = (bool **) malloc(MAP_Y * sizeof(bool *));
-	for (int i = 0; i < MAP_Y; i++)
-		entityHitbox[i] = (bool *) malloc(MAP_X * sizeof(bool));
-
-	//memset(entityHitbox, 0, sizeof(bool) * MAP_Y * MAP_X);
+		entityHitbox[i] = (int *) malloc(MAP_X * sizeof(int));
+	}
 
 	readMapHitbox(mapHitbox);
 
@@ -102,20 +105,28 @@ int main(){
 		refreshEntityHitbox(entity_data);
 
 		// receive a message from client
-		struct msg_ret_t msg_ret = recvMsg(entityBuffer);
-		if(msg_ret.status == MESSAGE_OK){
-			// if player doesn't walk into a wall, update entity_data array with new
-			// entityBuffer.
-			// this part should be redone as to update each part of an entity separately
-			if (!hitbox(entityBuffer->pos[POS_Y], entityBuffer->pos[POS_X])) {
-				entity_data[msg_ret.client_id] = *entityBuffer;
-
-				// print message on server console
-				mvprintw(entityBuffer->id + 5, 0,"%d pos: %.2d %.2d", entityBuffer->id, entityBuffer->pos[POS_Y], entityBuffer->pos[POS_X]);
+		struct msg_ret_t client_data = recvMsg(entityBuffer);
+		if(client_data.status == MESSAGE_OK){
+			// if there's a hitbox in new position, update player with previous position data
+			if (hitbox(entityBuffer->pos[POS_Y], entityBuffer->pos[POS_X])) {
+				entityBuffer->pos[POS_Y] = entity_data[client_data.client_id].pos[POS_Y];
+				entityBuffer->pos[POS_X] = entity_data[client_data.client_id].pos[POS_X];
 			}
+
+			if (entityBuffer->attack[ATK_DIR] >= 0) {
+				// getDamageFromAttackType() 
+				attack(entity_data, entityBuffer->attack[ATK_DIR], client_data.client_id, 1, 20);
+				entityBuffer->attack[ATK_DIR] = NO_ATK;
+				mvprintw(1, 0, "hit!");
+			}
+
+			// save buffer on server data
+			entity_data[client_data.client_id] = *entityBuffer;
+			// print message on server console
+			mvprintw(entityBuffer->id + 5, 0,"%d pos: %.2d %.2d", entityBuffer->id, entityBuffer->pos[POS_Y], entityBuffer->pos[POS_X]);
 		}
-		else if(msg_ret.status == DISCONNECT_MSG){
-			printw("%s disconnected, id = %d is free\n", client_names[msg_ret.client_id], msg_ret.client_id);
+		else if(client_data.status == DISCONNECT_MSG){
+			printw("%s disconnected, id = %d is free\n", client_names[client_data.client_id], client_data.client_id);
 		}
 
 
@@ -157,11 +168,8 @@ void *mobLogicThread(void *entityData) {
         for (int i = MAX_CLIENTS; i < MAX_ENTITIES; i++) {
 			// refresh entity hitbox information
 			if (entity_data[i].isAlive) {
-				//y = (int) entity_data[i].pos[POS_Y];
-				//x = (int) entity_data[i].pos[POS_X];
 				// if entity is alive, use pathfind() function to move it towards the closest player
-				pathfind(&entity_data[i], &entity_data[findClosestPlayer(entity_data, &entity_data[i])], 3);
-				//entityHitbox[y][x] = 1;
+				// pathfind(&entity_data[i], &entity_data[findClosestPlayer(entity_data, &entity_data[i])], 3);
 			} else if ( !entity_data[i].isAlive && (rand() % 200) <= 3 && entitiesSpawned < 5) {
 				entity_data[i] = newMonster(BERSERK, rand() % (MAP_Y - 2), rand() % (MAP_X - 2));
 				entitiesSpawned++;
@@ -174,6 +182,7 @@ void *mobLogicThread(void *entityData) {
 
 /*
  * populates entityHitbox with current entity position data
+ * TODO: store entity id instead of true/false so we can know which entity is at x
  */
 void refreshEntityHitbox(Entity *entity_data) {
 	// clear array TODO: CHANGE THIS
@@ -189,7 +198,7 @@ void refreshEntityHitbox(Entity *entity_data) {
 			y = (int) entity_data[i].pos[POS_Y];
 			x = (int) entity_data[i].pos[POS_X];
 			mvprintw(i, 0, "%d %d\n", y, x);
-			entityHitbox[y][x] = 1;
+			entityHitbox[y][x] = i;
 		}
 	}
 }
@@ -231,15 +240,19 @@ void pathfind(Entity *entity, Entity *target, int distance) {
 	if ((int) hypotenuse(entity->pos[POS_X] - target->pos[POS_X], 
 				   		 entity->pos[POS_Y] - target->pos[POS_Y]) > distance) {
 		// move x towards target
-		if (entity->pos[POS_X] + distance < target->pos[POS_X] && !hitbox(entity->pos[POS_Y], entity->pos[POS_X] + 1))
+		if (entity->pos[POS_X] + distance < target->pos[POS_X] 
+			&& !hitbox(entity->pos[POS_Y], entity->pos[POS_X] + 1))
 			entity->pos[POS_X]++;
-		else if (entity->pos[POS_X] + distance > target->pos[POS_X] && !hitbox(entity->pos[POS_Y], entity->pos[POS_X] - 1))
+		else if (entity->pos[POS_X] + distance > target->pos[POS_X] 
+			&& !hitbox(entity->pos[POS_Y], entity->pos[POS_X] - 1))
 			entity->pos[POS_X]--;
 		
 		// move y towards target
-		if (entity->pos[POS_Y] + distance < target->pos[POS_Y] && !hitbox(entity->pos[POS_Y] + 1, entity->pos[POS_X]))
+		if (entity->pos[POS_Y] + distance < target->pos[POS_Y] 
+			&& !hitbox(entity->pos[POS_Y] + 1, entity->pos[POS_X]))
 			entity->pos[POS_Y]++;
-		else if (entity->pos[POS_Y] + distance > target->pos[POS_Y] && !hitbox(entity->pos[POS_Y] - 1, entity->pos[POS_X]))
+		else if (entity->pos[POS_Y] + distance > target->pos[POS_Y] 
+			&& !hitbox(entity->pos[POS_Y] - 1, entity->pos[POS_X]))
 			entity->pos[POS_Y]--;
 	}
 }
@@ -249,7 +262,7 @@ void pathfind(Entity *entity, Entity *target, int distance) {
  */
 bool hitbox(int y, int x) {
 	return (mapHitbox[y][x])
-		|| (entityHitbox[y][x])
+		|| (entityHitbox[y][x] > 0)
 		|| (y > MAP_Y - 3)
 		|| (y < 0)
 		|| (x > MAP_X - 4)
@@ -259,7 +272,6 @@ bool hitbox(int y, int x) {
 /*
 	Reads map hitbox from resource files and saves it on a bool array
 	Only needs to be used once per initialization
-	TODO: CONVERT MAP FROM CHAR TO BOOL ARRAY
 */
 void readMapHitbox() {
 	FILE *map_hitbox = fopen("res/map_hitbox.rtxt", "r");
@@ -275,4 +287,84 @@ void readMapHitbox() {
 	}
 
 	fclose(map_hitbox);
+}
+
+/*
+ * gets an entity id from a reference point and direction
+ */
+int getEntityIdFromReference(Entity *entity_data, int direction, int refId) {
+	int refY = entity_data[refId].pos[POS_Y];
+    int refX = entity_data[refId].pos[POS_X];
+	// TODO: prevent segfault in this
+	switch(direction) {
+		case UP:
+			return entityHitbox[refY - 1][refX];
+		case DOWN:
+			return entityHitbox[refY + 1][refX];
+		case LEFT:
+			return entityHitbox[refY][refX - 1];
+		case RIGHT:
+			return entityHitbox[refY][refX + 1];
+	}
+}
+
+/*
+ * attack an entity
+ * entity_data - current entity_data
+ * direction - direction of the attack (direction enum on common.h)
+ * idAttacker - id of the attacker
+ * idTarget - id of the target
+ * reach - how far the attack goes
+ * damage - how much damage the attack does
+ */
+void attack(Entity *entity_data, int direction, int idAttacker, int reach, int damage){
+    // armazena os valores das posicoes
+    int posAtkY = entity_data[idAttacker].pos[POS_Y];
+    int posAtkX = entity_data[idAttacker].pos[POS_X];
+
+	int idTarget = getEntityIdFromReference(entity_data, direction, idAttacker);
+
+	if (idTarget > 0) {
+		int posTgtY = entity_data[idTarget].pos[POS_Y];
+		int posTgtX = entity_data[idTarget].pos[POS_X];
+
+		bool isPossible = false;
+
+		// verificar o ataque a partir da direção
+		switch(direction) {
+			// verifica se a coluna eh a mesma, se esta numa linha menor(ou igual?) e a diferenca esta dentro do alcance
+			case UP:
+				isPossible = (posAtkX == posTgtX && posAtkY >= posTgtY
+						   && posAtkY - posTgtY <= reach);
+				break;
+			case DOWN: 
+				isPossible = (posAtkX == posTgtX && posAtkY <= posTgtY 
+						   && posTgtY - posAtkY <= reach);
+				break;
+			case LEFT: 
+				isPossible = (posAtkY == posTgtY && posAtkX >= posTgtX
+						   && posAtkX - posTgtX <= reach);
+				break;		
+			case RIGHT: 
+				isPossible = (posAtkY == posTgtY && posAtkX <= posTgtX
+						   && posTgtX - posAtkX <= reach);
+				break;		
+		}
+		if (isPossible)
+			dealDamage(&entity_data[idTarget], damage);
+	}
+}
+
+/*
+ * deal damage
+ * returns true if entity dies
+ */
+bool dealDamage(Entity *entity, int damage){
+    entity->hp -= damage;
+	if (entity->hp <= 0) {
+		entity->isAlive = false;
+		return true;
+	} else {
+		return false;
+	}
 }
