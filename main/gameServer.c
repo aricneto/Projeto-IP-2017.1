@@ -16,12 +16,10 @@
 
 void readMapHitbox();
 bool hitbox(int y, int x);
-void refreshEntityHitbox(Entity *entity_data);
-
 void *mobLogicThread(void *entity_data);
 
 int findClosestPlayer(Entity *entity_data, Entity *entity);
-void pathfind(Entity *entity, Entity *target, int distance);
+bool pathfind(Entity *entity, Entity *target, int distance);
 
 // attack functions
 void attack(Entity *entity_data, int direction, int idAttacker, int reach, int damage);
@@ -46,7 +44,7 @@ int main(){
 	Entity *entityBuffer = (Entity *) malloc(sizeof(Entity));
 
 	for (int i = 0; i < MAX_ENTITIES; i++) {
-		entity_data[i].isAlive = false;
+		entity_data[i].isAlive = 0;
 		//entity_data[i].id = i;
 	}
 
@@ -55,6 +53,13 @@ int main(){
 	for (int i = 0; i < MAP_Y; i++) {
 		mapHitbox[i] = (bool *) malloc(MAP_X * sizeof(bool));
 		entityHitbox[i] = (int *) malloc(MAP_X * sizeof(int));
+	}
+
+	// initialize entity hitbox
+	for (int i = 0; i < MAP_Y; i++) {
+		for (int j = 0; j < MAP_X; j++) {
+			entityHitbox[i][j] = NO_HITBOX;
+		}
 	}
 
 	readMapHitbox(mapHitbox);
@@ -100,8 +105,6 @@ int main(){
 
 			printw("%s connected id = %d\n", client_names[id], id);
 		}
-
-		refreshEntityHitbox(entity_data);
 
 		// receive a message from client
 		struct msg_ret_t client_data = recvMsg(entityBuffer);
@@ -161,16 +164,37 @@ void *mobLogicThread(void *entityData) {
         usleep(AI_DELAY);
 		// how many entities have been spawned in this cycle
 		bool entitiesSpawned = 0;
-		int y, x;
+		int y, x, j = 0;
 		//memset(entityHitbox, 0, sizeof(bool) * MAP_Y * MAP_X);
 		// 0 to MAX_CLIENTS entity ids are reserved for players
-        for (int i = MAX_CLIENTS; i < MAX_ENTITIES; i++) {
+        for (int i = 0; i < MAX_ENTITIES; i++) {
 			// refresh entity hitbox information
 			if (entity_data[i].isAlive) {
-				// if entity is alive, use pathfind() function to move it towards the closest player
-				pathfind(&entity_data[i], &entity_data[findClosestPlayer(entity_data, &entity_data[i])], 1);
-			} else if ( !entity_data[i].isAlive && (rand() % 200) <= 3 && entitiesSpawned < 5) {
-				entity_data[i] = newMonster(BERSERK, (rand() % (MAP_Y - 4) + 2), (rand() % (MAP_X - 4)) + 2);
+				if (entity_data[i].state == STATE_HIT) {
+					entity_data[i].state ^= STATE_HIT;
+					entity_data[i].icon ^= A_REVERSE;
+				}
+				if (i > MAX_CLIENTS) {
+					// if entity is alive and not a player, use pathfind() 
+					// function to move it towards the closest player
+					y = (int) entity_data[i].pos[POS_Y];
+					x = (int) entity_data[i].pos[POS_X];
+					// if entity has moved with pathfind()
+					if (pathfind(&entity_data[i], 
+							&entity_data[findClosestPlayer(entity_data, &entity_data[i])], 1)) {
+						// clear hitbox at old position
+						entityHitbox[y][x] = NO_HITBOX;
+						// save new position
+						y = (int) entity_data[i].pos[POS_Y];
+						x = (int) entity_data[i].pos[POS_X];
+						entityHitbox[y][x] = i;
+					}
+				}
+				mvprintw(i + 2, 0, "%.2d %.2d", y, x);
+				mvprintw(i + 2, 8, "id: %d", findClosestPlayer(entity_data, &entity_data[i]));
+				mvprintw(i + 2, 14, "alive: %d", entity_data[findClosestPlayer(entity_data, &entity_data[i])].isAlive);
+			} else if ( i > MAX_CLIENTS && !entity_data[i].isAlive && (rand() % 200) <= 200 && entitiesSpawned < 5) {
+				entity_data[i] = newMonster(BERSERK, (rand() % (MAP_Y - 4)) + 2, (rand() % (MAP_X - 5)) + 2);
 				entitiesSpawned++;
 			}
 			
@@ -178,30 +202,6 @@ void *mobLogicThread(void *entityData) {
     }
     return 0;
 }
-
-/*
- * populates entityHitbox with current entity position data
- * TODO: store entity id instead of true/false so we can know which entity is at x
- */
-void refreshEntityHitbox(Entity *entity_data) {
-	// clear array TODO: CHANGE THIS
-	for (int i = 0; i < MAP_Y; i++) {
-		for (int j = 0; j < MAP_X; j++) {
-			entityHitbox[i][j] = 0;
-		}
-	}
-	// populate array with entity data
-	int x, y;
-	for (int i = 0; i < MAX_ENTITIES; i++) {
-		if (entity_data[i].isAlive) {
-			y = (int) entity_data[i].pos[POS_Y];
-			x = (int) entity_data[i].pos[POS_X];
-			mvprintw(i, 0, "%d %d\n", y, x);
-			entityHitbox[y][x] = i;
-		}
-	}
-}
-
 
 /*
  * uses pythagoras to get a hypotenuse
@@ -217,13 +217,15 @@ int findClosestPlayer(Entity *entity_data, Entity *entity) {
 	int closestPlayer = 0;
 	double closestHypotenuse = hypotenuse( entity_data[closestPlayer].pos[POS_X] - entity->pos[POS_X],
 						  				   entity_data[closestPlayer].pos[POS_Y] - entity->pos[POS_Y]);
-	for (int i = 1; i < MAX_CLIENTS; i++) {
-		// hypothenuse of (player_x - entity_x), (player_y - entity_y)
-		if (hypotenuse( entity_data[i].pos[POS_X] - entity->pos[POS_X], 
-					    entity_data[i].pos[POS_Y] - entity->pos[POS_Y]) < closestHypotenuse) {
-			closestPlayer = i;
-			closestHypotenuse = hypotenuse( entity_data[closestPlayer].pos[POS_X] - entity->pos[POS_X],
-						  				    entity_data[closestPlayer].pos[POS_Y] - entity->pos[POS_Y]);
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		if (entity_data[i].isAlive) {
+			// hypothenuse of (player_x - entity_x), (player_y - entity_y)
+			if (hypotenuse( entity_data[i].pos[POS_X] - entity->pos[POS_X], 
+							entity_data[i].pos[POS_Y] - entity->pos[POS_Y]) < closestHypotenuse) {
+				closestPlayer = i;
+				closestHypotenuse = hypotenuse( entity_data[closestPlayer].pos[POS_X] - entity->pos[POS_X],
+												entity_data[closestPlayer].pos[POS_Y] - entity->pos[POS_Y]);
+			}
 		}
 	}
 
@@ -234,38 +236,47 @@ int findClosestPlayer(Entity *entity_data, Entity *entity) {
 /*
  * very primitive pathfinding that moves entity to target
  * distance is the closest distance the entity should be from target
+ * returns true if entity moves
  */
-void pathfind(Entity *entity, Entity *target, int distance) {
+bool pathfind(Entity *entity, Entity *target, int distance) {
+	bool hasMoved = false;
 	if ((int) hypotenuse(entity->pos[POS_X] - target->pos[POS_X], 
 				   		 entity->pos[POS_Y] - target->pos[POS_Y]) > distance) {
 		// move x towards target
 		if (entity->pos[POS_X] + distance < target->pos[POS_X] 
-			&& !hitbox(entity->pos[POS_Y], entity->pos[POS_X] + 1))
+			&& !hitbox(entity->pos[POS_Y], entity->pos[POS_X] + 1)) {
 			entity->pos[POS_X]++;
-		else if (entity->pos[POS_X] + distance > target->pos[POS_X] 
-			&& !hitbox(entity->pos[POS_Y], entity->pos[POS_X] - 1))
+			hasMoved = true;
+		} else if (entity->pos[POS_X] + distance > target->pos[POS_X] 
+			&& !hitbox(entity->pos[POS_Y], entity->pos[POS_X] - 1)) {
 			entity->pos[POS_X]--;
+			hasMoved = true;
+		}
 		
 		// move y towards target
 		if (entity->pos[POS_Y] + distance < target->pos[POS_Y] 
-			&& !hitbox(entity->pos[POS_Y] + 1, entity->pos[POS_X]))
+			&& !hitbox(entity->pos[POS_Y] + 1, entity->pos[POS_X])) {
 			entity->pos[POS_Y]++;
-		else if (entity->pos[POS_Y] + distance > target->pos[POS_Y] 
-			&& !hitbox(entity->pos[POS_Y] - 1, entity->pos[POS_X]))
+			hasMoved = true;
+		} else if (entity->pos[POS_Y] + distance > target->pos[POS_Y] 
+			&& !hitbox(entity->pos[POS_Y] - 1, entity->pos[POS_X])) {
 			entity->pos[POS_Y]--;
+			hasMoved = true;
+		}
 	}
+	return hasMoved;
 }
 
 /*
  * returns true if entity hits a hitbox
  */
 bool hitbox(int y, int x) {
-	return (mapHitbox[y][x])
-		|| (entityHitbox[y][x] > 0)
-		|| (y > MAP_Y - 3)
+	return (y > MAP_Y - 3)
 		|| (y < 0)
 		|| (x > MAP_X - 4)
-		|| (x < 0);
+		|| (x < 0)
+		|| (mapHitbox[y][x])
+		|| (entityHitbox[y][x] != NO_HITBOX);
 }
 
 /*
@@ -323,7 +334,7 @@ void attack(Entity *entity_data, int direction, int idAttacker, int reach, int d
 
 	int idTarget = getEntityIdFromReference(entity_data, direction, idAttacker);
 
-	if (idTarget > 0) {
+	if (idTarget >= 0) {
 		int posTgtY = entity_data[idTarget].pos[POS_Y];
 		int posTgtX = entity_data[idTarget].pos[POS_X];
 
@@ -364,6 +375,8 @@ bool dealDamage(Entity *entity, int damage){
 		entity->isAlive = false;
 		return true;
 	} else {
+		entity->icon |= A_REVERSE;
+		entity->state |= STATE_HIT;
 		return false;
 	}
 }

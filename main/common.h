@@ -11,12 +11,14 @@
 #define PACKET_WAIT 33333
 
 // entity AI delay in microseconds
-#define AI_DELAY 500000
+#define AI_DELAY 300000
 
 // map size
 // should be screen_size + 2 to accomodate borders
 #define MAP_Y 33
 #define MAP_X 92
+
+#define NO_HITBOX -1
 
 typedef struct map_s {
 	char **screen;
@@ -55,6 +57,10 @@ enum {
 #define ATK_DIR 0
 #define ATK_TYP 1
 #define NO_ATK -1
+// state
+#define STATE_NORMAL	0b00000000
+#define STATE_HIT 		0b10000000
+#define STATE_CONFUSED  0b01000000
 
 /*
  * represents an entity
@@ -78,6 +84,7 @@ typedef struct entity {
 							   depends on the class.
 							   eg. Warrior only has 1 attack (melee) (maybe add AoE?)
 							   Archer has melee and ranged */
+	unsigned char state;    // entity state (confused/hit/etc)
 } Entity;
 
 
@@ -95,6 +102,7 @@ Entity newEntity(unsigned char type, unsigned char initPosY, unsigned char initP
 	entity.color = color;
 	entity.hp = initHp;
 	entity.attack[ATK_DIR] = NO_ATK;
+	entity.state = STATE_NORMAL;
 	return entity;
 }
 
