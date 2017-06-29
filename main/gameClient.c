@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void readMap(Map *map);
+void readMap(Map *map, bool hasWall);
 void drawMap(Map *map, WINDOW *window);
 void drawEntity(WINDOW *window, Entity entity);
 void redrawMapSpot(Map *map, WINDOW *window, int y, int x);
@@ -15,8 +15,8 @@ int main() {
 	WINDOW *debug_window;
 	Map *game_map = (Map *) malloc(sizeof(Map));
 
-	Entity *entityData = (Entity *) malloc(MAX_ENTITIES * sizeof(Entity));
-	Entity *entityDataOld = (Entity *) malloc(MAX_ENTITIES * sizeof(Entity));
+	Entity *entityData = (Entity *) malloc((MAX_ENTITIES + 1) * sizeof(Entity));
+	Entity *entityDataOld = (Entity *) malloc((MAX_ENTITIES + 1) * sizeof(Entity));
 
 	// initialize char
 	Entity *player = (Entity *) malloc(sizeof(Entity));
@@ -82,7 +82,7 @@ int main() {
 	refresh();
 
 	// read the map file and save it to a map struct
-	readMap(game_map);
+	readMap(game_map, true);
 
 	// draw the map
 	drawMap(game_map, game_window);
@@ -90,6 +90,8 @@ int main() {
 	wrefresh(game_window);
 
 	int k;
+
+	bool isWallDestroyed = false;
 
 	// DEBUG
 	bool quit = false;
@@ -159,6 +161,13 @@ int main() {
 				if (entityData[i].isAlive)
 					drawEntity(game_window, entityData[i]);
 			}
+
+			// check if wall has been destroyed
+			if (!entityData[MAX_ENTITIES].isAlive && !isWallDestroyed) {
+				isWallDestroyed = true;
+				readMap(game_map, false);
+				drawMap(game_map, game_window);
+			}
 			
 			// refresh windows
 			wrefresh(game_window);
@@ -175,9 +184,14 @@ int main() {
 	Reads map from resource files and saves it on a Map struct
 	Only needs to be used once per initialization
 */
-void readMap(Map *map) {
-	FILE *map_screen = fopen("res/map_screen.rtxt", "r");
+void readMap(Map *map, bool hasWall) {
+	FILE *map_screen;
 	FILE *map_color = fopen("res/map_color.rtxt", "r");
+
+	if (hasWall)
+		map_screen = fopen("res/map_screen.rtxt", "r");
+	else
+		map_screen = fopen("res/map_screen_nowall.rtxt", "r");
 
 	for (int i = 0; i < MAP_Y; i++) {
 		fgets(map->screen[i], MAP_X, map_screen);

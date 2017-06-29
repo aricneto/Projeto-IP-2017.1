@@ -27,6 +27,7 @@ int getEntityIdFromReference(Entity *entity_data, int direction, int refId);
 int getClosestPlayerDirectionFromReference(Entity *entity_data, int refId);
 ClosestPlayer findClosestPlayer(Entity *entity_data, Entity *entity);
 bool pathfind(Entity *entity, Entity *target, int distance);
+void destroyTheWall(Entity *entity_data);
 
 // attack functions
 void attack(Entity *entity_data, int direction, int idAttacker, int reach, int damage);
@@ -47,13 +48,16 @@ int **entityHitbox;
 int main(){
 	char client_names[MAX_GAME_CLIENTS][MAX_LOGIN_SIZE];
 
-	Entity *entity_data = (Entity *) calloc(MAX_ENTITIES, sizeof(Entity));
+	Entity *entity_data = (Entity *) calloc(MAX_ENTITIES + 1, sizeof(Entity));
 	Entity *entityBuffer = (Entity *) malloc(sizeof(Entity));
 
 	for (int i = 0; i < MAX_ENTITIES; i++) {
 		entity_data[i].isAlive = 0;
 		//entity_data[i].id = i;
 	}
+
+	// last entity reserved for info about wall
+	entity_data[MAX_ENTITIES].isAlive = true;
 
 	mapHitbox = (bool **) malloc(MAP_Y * sizeof(bool *));
 	entityHitbox = (int **) malloc(MAP_Y * sizeof(int *));
@@ -140,18 +144,19 @@ int main(){
 		else if(client_data.status == DISCONNECT_MSG){
 			printw("%s disconnected, id = %d is free\n", client_names[client_data.client_id], client_data.client_id);
 		}
-
+		
 
 		// stop server on backspace
 		if (getch() == KEY_BACKSPACE){
 			printw("Server closed!");
-			break;
+			destroyTheWall(entity_data);
+			//break;
 		}
 		
 		refresh();
 
 		// send entity data to clients
-		broadcast(entity_data, MAX_ENTITIES * sizeof(Entity));
+		broadcast(entity_data, (MAX_ENTITIES + 1) * sizeof(Entity));
 	}
 
 	endwin();
@@ -199,7 +204,7 @@ void *mobLogicThread(void *entityData) {
 							attack(entity_data, closestDir, i, 1, 2);
 						}
 					}
-					// if entity has moved with pathfind()
+					/*/ if entity has moved with pathfind()
 					if (pathfind(&entity_data[i], 
 							&entity_data[closest.id], 1)) {
 						// clear hitbox at old position
@@ -208,7 +213,7 @@ void *mobLogicThread(void *entityData) {
 						y = (int) entity_data[i].pos[POS_Y];
 						x = (int) entity_data[i].pos[POS_X];
 						entityHitbox[y][x] = i;
-					}
+					}*/
 				}
 				//mvprintw(i + 2, 0, "%.2d %.2d", y, x);
 				//mvprintw(i + 2, 8, "id: %d", findClosestPlayer(entity_data, &entity_data[i]));
@@ -420,4 +425,15 @@ bool dealDamage(Entity *entity, int damage){
 		entity->state |= STATE_HIT;
 		return false;
 	}
+}
+
+void destroyTheWall(Entity *entity_data){
+   entity_data[MAX_ENTITIES].isAlive = false;
+   // remove wall hitbox
+   for(int i = 11; i <= 13; i++){
+       for(int j = 0; j < MAP_X; j++){
+           if(mapHitbox[i][j] == 1)
+               mapHitbox[i][j] = 0;
+       }
+   }
 }
