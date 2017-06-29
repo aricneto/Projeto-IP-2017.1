@@ -18,7 +18,14 @@ void readMapHitbox();
 bool hitbox(int y, int x);
 void *mobLogicThread(void *entity_data);
 
-int findClosestPlayer(Entity *entity_data, Entity *entity);
+typedef struct closest_player {
+	int id;
+	int distance;
+} ClosestPlayer;
+
+int getEntityIdFromReference(Entity *entity_data, int direction, int refId);
+int getClosestPlayerDirectionFromReference(Entity *entity_data, int refId);
+ClosestPlayer findClosestPlayer(Entity *entity_data, Entity *entity);
 bool pathfind(Entity *entity, Entity *target, int distance);
 
 // attack functions
@@ -113,6 +120,9 @@ int main(){
 			if (hitbox(entityBuffer->pos[POS_Y], entityBuffer->pos[POS_X])) {
 				entityBuffer->pos[POS_Y] = entity_data[client_data.client_id].pos[POS_Y];
 				entityBuffer->pos[POS_X] = entity_data[client_data.client_id].pos[POS_X];
+			} else {
+				entityHitbox[entity_data[client_data.client_id].pos[POS_Y]][entity_data[client_data.client_id].pos[POS_X]] = NO_HITBOX;
+				entityHitbox[entityBuffer->pos[POS_Y]][entityBuffer->pos[POS_X]] = client_data.client_id;
 			}
 
 			if (entityBuffer->attack[ATK_DIR] >= 0) {
@@ -168,20 +178,30 @@ void *mobLogicThread(void *entityData) {
 		//memset(entityHitbox, 0, sizeof(bool) * MAP_Y * MAP_X);
 		// 0 to MAX_CLIENTS entity ids are reserved for players
         for (int i = 0; i < MAX_ENTITIES; i++) {
-			// refresh entity hitbox information
 			if (entity_data[i].isAlive) {
+				// refresh hitmark
 				if (entity_data[i].state == STATE_HIT) {
 					entity_data[i].state ^= STATE_HIT;
 					entity_data[i].icon ^= A_REVERSE;
 				}
+				if (entity_data[i].attack[ATK_CLD] > 0) {
+					entity_data[i].attack[ATK_CLD] -= 40;
+				}
 				if (i > MAX_CLIENTS) {
 					// if entity is alive and not a player, use pathfind() 
 					// function to move it towards the closest player
+					ClosestPlayer closest = findClosestPlayer(entity_data, &entity_data[i]);
 					y = (int) entity_data[i].pos[POS_Y];
 					x = (int) entity_data[i].pos[POS_X];
+					if (closest.distance <= 1) {
+						int closestDir = getClosestPlayerDirectionFromReference(entity_data, i);
+						if (closestDir != -1) {
+							attack(entity_data, closestDir, i, 1, 2);
+						}
+					}
 					// if entity has moved with pathfind()
 					if (pathfind(&entity_data[i], 
-							&entity_data[findClosestPlayer(entity_data, &entity_data[i])], 1)) {
+							&entity_data[closest.id], 1)) {
 						// clear hitbox at old position
 						entityHitbox[y][x] = NO_HITBOX;
 						// save new position
@@ -190,9 +210,9 @@ void *mobLogicThread(void *entityData) {
 						entityHitbox[y][x] = i;
 					}
 				}
-				mvprintw(i + 2, 0, "%.2d %.2d", y, x);
-				mvprintw(i + 2, 8, "id: %d", findClosestPlayer(entity_data, &entity_data[i]));
-				mvprintw(i + 2, 14, "alive: %d", entity_data[findClosestPlayer(entity_data, &entity_data[i])].isAlive);
+				//mvprintw(i + 2, 0, "%.2d %.2d", y, x);
+				//mvprintw(i + 2, 8, "id: %d", findClosestPlayer(entity_data, &entity_data[i]));
+				//mvprintw(i + 2, 14, "alive: %d", entity_data[findClosestPlayer(entity_data, &entity_data[i])].isAlive);
 			} else if ( i > MAX_CLIENTS && !entity_data[i].isAlive && (rand() % 200) <= 200 && entitiesSpawned < 5) {
 				entity_data[i] = newMonster(BERSERK, (rand() % (MAP_Y - 4)) + 2, (rand() % (MAP_X - 5)) + 2);
 				entitiesSpawned++;
@@ -213,18 +233,19 @@ double hypotenuse(int x, int y) {
 /*
  * finds closest player to an entity
  */
-int findClosestPlayer(Entity *entity_data, Entity *entity) {
-	int closestPlayer = 0;
-	double closestHypotenuse = hypotenuse( entity_data[closestPlayer].pos[POS_X] - entity->pos[POS_X],
-						  				   entity_data[closestPlayer].pos[POS_Y] - entity->pos[POS_Y]);
+ClosestPlayer findClosestPlayer(Entity *entity_data, Entity *entity) {
+	ClosestPlayer closestPlayer;
+	closestPlayer.id = 0;
+	closestPlayer.distance = hypotenuse( entity_data[closestPlayer.id].pos[POS_X] - entity->pos[POS_X],
+						  				   entity_data[closestPlayer.id].pos[POS_Y] - entity->pos[POS_Y]);
 	for (int i = 0; i < MAX_CLIENTS; i++) {
 		if (entity_data[i].isAlive) {
 			// hypothenuse of (player_x - entity_x), (player_y - entity_y)
 			if (hypotenuse( entity_data[i].pos[POS_X] - entity->pos[POS_X], 
-							entity_data[i].pos[POS_Y] - entity->pos[POS_Y]) < closestHypotenuse) {
-				closestPlayer = i;
-				closestHypotenuse = hypotenuse( entity_data[closestPlayer].pos[POS_X] - entity->pos[POS_X],
-												entity_data[closestPlayer].pos[POS_Y] - entity->pos[POS_Y]);
+							entity_data[i].pos[POS_Y] - entity->pos[POS_Y]) < closestPlayer.distance) {
+				closestPlayer.id = i;
+				closestPlayer.distance = hypotenuse( entity_data[closestPlayer.id].pos[POS_X] - entity->pos[POS_X],
+												entity_data[closestPlayer.id].pos[POS_Y] - entity->pos[POS_Y]);
 			}
 		}
 	}
@@ -300,6 +321,21 @@ void readMapHitbox() {
 }
 
 /*
+ * gets the direction of the closest player from a reference point
+ */
+int getClosestPlayerDirectionFromReference(Entity *entity_data, int refId) {
+	int id;
+	// go through all directions (up, down, left, right)
+	for (int dir = 0; dir < 4; dir++) {
+		id = getEntityIdFromReference(entity_data, dir, refId);
+		if (id >= 0 && id < MAX_CLIENTS) {
+			return dir;
+		}
+	}
+	return -1;
+}
+
+/*
  * gets an entity id from a reference point and direction
  */
 int getEntityIdFromReference(Entity *entity_data, int direction, int refId) {
@@ -328,40 +364,44 @@ int getEntityIdFromReference(Entity *entity_data, int direction, int refId) {
  * damage - how much damage the attack does
  */
 void attack(Entity *entity_data, int direction, int idAttacker, int reach, int damage){
-    // armazena os valores das posicoes
-    int posAtkY = entity_data[idAttacker].pos[POS_Y];
-    int posAtkX = entity_data[idAttacker].pos[POS_X];
+	if (entity_data[idAttacker].attack[ATK_CLD] <= 0) {
+		// armazena os valores das posicoes
+		int posAtkY = entity_data[idAttacker].pos[POS_Y];
+		int posAtkX = entity_data[idAttacker].pos[POS_X];
 
-	int idTarget = getEntityIdFromReference(entity_data, direction, idAttacker);
+		int idTarget = getEntityIdFromReference(entity_data, direction, idAttacker);
 
-	if (idTarget >= 0) {
-		int posTgtY = entity_data[idTarget].pos[POS_Y];
-		int posTgtX = entity_data[idTarget].pos[POS_X];
+		if (idTarget >= 0) {
+			int posTgtY = entity_data[idTarget].pos[POS_Y];
+			int posTgtX = entity_data[idTarget].pos[POS_X];
 
-		bool isPossible = false;
+			bool isPossible = false;
 
-		// verificar o ataque a partir da direção
-		switch(direction) {
-			// verifica se a coluna eh a mesma, se esta numa linha menor(ou igual?) e a diferenca esta dentro do alcance
-			case UP:
-				isPossible = (posAtkX == posTgtX && posAtkY >= posTgtY
-						   && posAtkY - posTgtY <= reach);
-				break;
-			case DOWN: 
-				isPossible = (posAtkX == posTgtX && posAtkY <= posTgtY 
-						   && posTgtY - posAtkY <= reach);
-				break;
-			case LEFT: 
-				isPossible = (posAtkY == posTgtY && posAtkX >= posTgtX
-						   && posAtkX - posTgtX <= reach);
-				break;		
-			case RIGHT: 
-				isPossible = (posAtkY == posTgtY && posAtkX <= posTgtX
-						   && posTgtX - posAtkX <= reach);
-				break;		
+			// verificar o ataque a partir da direção
+			switch(direction) {
+				// verifica se a coluna eh a mesma, se esta numa linha menor(ou igual?) e a diferenca esta dentro do alcance
+				case UP:
+					isPossible = (posAtkX == posTgtX && posAtkY >= posTgtY
+							&& posAtkY - posTgtY <= reach);
+					break;
+				case DOWN: 
+					isPossible = (posAtkX == posTgtX && posAtkY <= posTgtY 
+							&& posTgtY - posAtkY <= reach);
+					break;
+				case LEFT: 
+					isPossible = (posAtkY == posTgtY && posAtkX >= posTgtX
+							&& posAtkX - posTgtX <= reach);
+					break;		
+				case RIGHT: 
+					isPossible = (posAtkY == posTgtY && posAtkX <= posTgtX
+							&& posTgtX - posAtkX <= reach);
+					break;		
+			}
+			if (isPossible)
+				dealDamage(&entity_data[idTarget], damage);
 		}
-		if (isPossible)
-			dealDamage(&entity_data[idTarget], damage);
+		// reset cooldown
+		entity_data[idAttacker].attack[ATK_CLD] = ATTACK_COOLDOWN;
 	}
 }
 
@@ -373,6 +413,7 @@ bool dealDamage(Entity *entity, int damage){
     entity->hp -= damage;
 	if (entity->hp <= 0) {
 		entity->isAlive = false;
+		entityHitbox[entity->pos[POS_Y]][entity->pos[POS_X]] = NO_HITBOX;
 		return true;
 	} else {
 		entity->icon |= A_REVERSE;

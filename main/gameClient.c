@@ -116,8 +116,20 @@ int main() {
 				moveEntity(player, RIGHT);
 				sendMsgToServer(player, sizeof(Entity));
 				break;
-			case 'a':
+			case 'w':
 				stageAttack(player, UP, 0);
+				sendMsgToServer(player, sizeof(Entity));
+				break;
+			case 's':
+				stageAttack(player, DOWN, 0);
+				sendMsgToServer(player, sizeof(Entity));
+				break;
+			case 'a':
+				stageAttack(player, LEFT, 0);
+				sendMsgToServer(player, sizeof(Entity));
+				break;
+			case 'd':
+				stageAttack(player, RIGHT, 0);
 				sendMsgToServer(player, sizeof(Entity));
 				break;
 			case KEY_BACKSPACE:

@@ -13,6 +13,9 @@
 // entity AI delay in microseconds
 #define AI_DELAY 300000
 
+// default entity attack cooldown (< 128)
+#define ATTACK_COOLDOWN 100
+
 // map size
 // should be screen_size + 2 to accomodate borders
 #define MAP_Y 33
@@ -54,8 +57,9 @@ enum {
 #define POS_Y 0
 #define POS_X 1
 // attack
-#define ATK_DIR 0
-#define ATK_TYP 1
+#define ATK_DIR 0 // direction
+#define ATK_TYP 1 // type
+#define ATK_CLD 2 // cooldown
 #define NO_ATK -1
 // state
 #define STATE_NORMAL	0b00000000
@@ -75,12 +79,14 @@ typedef struct entity {
 							   to it using ncurses */
 	unsigned char color;	// entity icon color
 	unsigned char hp;		// entity health points
-	char attack[2];		    /* entity attack information 
-							   first arg (direction): 
+	char attack[3];		    /* entity attack information 
+							   0 -first arg (direction): 
 							   		-1 if entity isn't attacking.
 							   		direction enum if it is
-							   second arg (type)
+							   1 - second arg (type)
 							   		attack type.
+							   3 - third arg (cooldown)
+							   		current cooldown before next attack
 							   depends on the class.
 							   eg. Warrior only has 1 attack (melee) (maybe add AoE?)
 							   Archer has melee and ranged */
@@ -103,6 +109,7 @@ Entity newEntity(unsigned char type, unsigned char initPosY, unsigned char initP
 	entity.hp = initHp;
 	entity.attack[ATK_DIR] = NO_ATK;
 	entity.state = STATE_NORMAL;
+	entity.attack[ATK_CLD] = 0;
 	return entity;
 }
 
