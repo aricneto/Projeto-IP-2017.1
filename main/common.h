@@ -122,7 +122,7 @@ Entity newMonster(unsigned char type,
 		case RUNNER:
 			return newEntity(RUNNER, initPosY, initPosX, 'r', 0, 5);
 		case CASTER:
-			return newEntity(CASTER, initPosY, initPosX, 'c', 7, 5);
+			return newEntity(CASTER, initPosY, initPosX, 'c', 7, 10);
 		case BERSERK:
 			return newEntity(BERSERK, initPosY, initPosX, 'B', 2, 20);
 	}

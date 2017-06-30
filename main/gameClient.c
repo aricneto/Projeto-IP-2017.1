@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void readMap(Map *map, bool hasWall);
+void readMap(Map *map, bool hasWall, bool isGameOver);
 void drawMap(Map *map, WINDOW *window);
 void drawEntity(WINDOW *window, Entity entity);
 void redrawMapSpot(Map *map, WINDOW *window, int y, int x);
@@ -82,7 +82,7 @@ int main() {
 	refresh();
 
 	// read the map file and save it to a map struct
-	readMap(game_map, true);
+	readMap(game_map, true, false);
 
 	// draw the map
 	drawMap(game_map, game_window);
@@ -95,6 +95,8 @@ int main() {
 
 	// DEBUG
 	bool quit = false;
+
+	bool gameOver = false;
 
 	drawMap(game_map, game_window);
 
@@ -148,7 +150,7 @@ int main() {
 			*player = entityData[player->id];
 
 			// debug
-			mvwprintw(debug_window, 1, 1, "color: %d", player->color);
+			mvwprintw(debug_window, 1, 2, "HEALTH: %.2d", player->hp);
 
 			// erase entities at previous frame
 			for (int i = 0; i < MAX_ENTITIES; i++) {
@@ -165,14 +167,21 @@ int main() {
 			// check if wall has been destroyed
 			if (!entityData[MAX_ENTITIES].isAlive && !isWallDestroyed) {
 				isWallDestroyed = true;
-				readMap(game_map, false);
+				readMap(game_map, false, false);
 				drawMap(game_map, game_window);
 			}
-			
+
+			if (!player->isAlive) {
+				readMap(game_map, false, true);
+				drawMap(game_map, game_window);
+			}
 			// refresh windows
 			wrefresh(game_window);
 			wrefresh(debug_window);
 		}
+
+		if (gameOver)
+			break;
 	}
 
 	endwin();
@@ -184,7 +193,7 @@ int main() {
 	Reads map from resource files and saves it on a Map struct
 	Only needs to be used once per initialization
 */
-void readMap(Map *map, bool hasWall) {
+void readMap(Map *map, bool hasWall, bool isGameOver) {
 	FILE *map_screen;
 	FILE *map_color = fopen("res/map_color.rtxt", "r");
 
@@ -192,6 +201,9 @@ void readMap(Map *map, bool hasWall) {
 		map_screen = fopen("res/map_screen.rtxt", "r");
 	else
 		map_screen = fopen("res/map_screen_nowall.rtxt", "r");
+	
+	if (isGameOver)
+		map_screen = fopen("res/game_over.rtxt", "r");
 
 	for (int i = 0; i < MAP_Y; i++) {
 		fgets(map->screen[i], MAP_X, map_screen);

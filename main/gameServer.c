@@ -27,7 +27,7 @@ int getEntityIdFromReference(Entity *entity_data, int direction, int refId);
 int getClosestPlayerDirectionFromReference(Entity *entity_data, int refId);
 ClosestPlayer findClosestPlayer(Entity *entity_data, Entity *entity);
 bool pathfind(Entity *entity, Entity *target, int distance);
-void destroyTheWall(Entity *entity_data);
+void destroyWall(Entity *entity_data);
 
 // attack functions
 void attack(Entity *entity_data, int direction, int idAttacker, int reach, int damage);
@@ -149,8 +149,8 @@ int main(){
 		// stop server on backspace
 		if (getch() == KEY_BACKSPACE){
 			printw("Server closed!");
-			destroyTheWall(entity_data);
-			//break;
+			//destroyWall(entity_data);
+			break;
 		}
 		
 		refresh();
@@ -174,13 +174,13 @@ void *mobLogicThread(void *entityData) {
 
 	Entity *entity_data = (Entity *) entityData;
 
-	int loops = 0;
+	int waves = 0;
+	bool isOnWave = false;
     while(true) {
         usleep(AI_DELAY);
-		// how many entities have been spawned in this cycle
-		bool entitiesSpawned = 0;
+		int monstersAlive = 0;
 		int y, x, j = 0;
-		//memset(entityHitbox, 0, sizeof(bool) * MAP_Y * MAP_X);
+		int entitiesSpawned = 0;
 		// 0 to MAX_CLIENTS entity ids are reserved for players
         for (int i = 0; i < MAX_ENTITIES; i++) {
 			if (entity_data[i].isAlive) {
@@ -193,6 +193,7 @@ void *mobLogicThread(void *entityData) {
 					entity_data[i].attack[ATK_CLD] -= 40;
 				}
 				if (i > MAX_CLIENTS) {
+					monstersAlive++;
 					// if entity is alive and not a player, use pathfind() 
 					// function to move it towards the closest player
 					ClosestPlayer closest = findClosestPlayer(entity_data, &entity_data[i]);
@@ -204,7 +205,7 @@ void *mobLogicThread(void *entityData) {
 							attack(entity_data, closestDir, i, 1, 2);
 						}
 					}
-					/*/ if entity has moved with pathfind()
+					// if entity has moved with pathfind()
 					if (pathfind(&entity_data[i], 
 							&entity_data[closest.id], 1)) {
 						// clear hitbox at old position
@@ -213,18 +214,35 @@ void *mobLogicThread(void *entityData) {
 						y = (int) entity_data[i].pos[POS_Y];
 						x = (int) entity_data[i].pos[POS_X];
 						entityHitbox[y][x] = i;
-					}*/
+					}
 				}
 				//mvprintw(i + 2, 0, "%.2d %.2d", y, x);
 				//mvprintw(i + 2, 8, "id: %d", findClosestPlayer(entity_data, &entity_data[i]));
 				//mvprintw(i + 2, 14, "alive: %d", entity_data[findClosestPlayer(entity_data, &entity_data[i])].isAlive);
-			} else if ( i > MAX_CLIENTS && !entity_data[i].isAlive && (rand() % 200) <= 200 && entitiesSpawned < 5) {
-				entity_data[i] = newMonster(BERSERK, (rand() % (MAP_Y - 4)) + 2, (rand() % (MAP_X - 5)) + 2);
+			} else if ( i > MAX_CLIENTS && !entity_data[i].isAlive 
+					&& entitiesSpawned < 20 && !isOnWave) {
+				int r = rand() % 20;
+				if (r < 10)
+					entity_data[i] = newMonster(RUNNER, 14, 3);
+				else if (r < 16)
+					entity_data[i] = newMonster(CASTER, 17, 71);
+				else
+					entity_data[i] = newMonster(BERSERK, 27, 18);
 				entitiesSpawned++;
+				monstersAlive++;
 			}
-			
+			if (entitiesSpawned >= 20) {
+				isOnWave = true;
+			}
 		}
-    }
+		if (monstersAlive == 0) {
+			isOnWave = false;
+			waves++;
+		}
+		if (waves == 1) {
+			destroyWall(entity_data);
+		}
+    } 
     return 0;
 }
 
@@ -427,7 +445,7 @@ bool dealDamage(Entity *entity, int damage){
 	}
 }
 
-void destroyTheWall(Entity *entity_data){
+void destroyWall(Entity *entity_data){
    entity_data[MAX_ENTITIES].isAlive = false;
    // remove wall hitbox
    for(int i = 11; i <= 13; i++){
