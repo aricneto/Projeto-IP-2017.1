@@ -5,41 +5,46 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void readMap(Map *map, bool hasWall, bool isGameOver);
+void readMap(Map *map, int type);
 void drawMap(Map *map, WINDOW *window);
 void drawEntity(WINDOW *window, Entity entity);
 void redrawMapSpot(Map *map, WINDOW *window, int y, int x);
+void readBoss(Map *map);
+void drawBoss(Map *map, WINDOW *window);
+
 
 int main() {
 	WINDOW *game_window;
 	WINDOW *debug_window;
 	Map *game_map = (Map *) malloc(sizeof(Map));
 
-	Entity *entityData = (Entity *) malloc((MAX_ENTITIES + 1) * sizeof(Entity));
-	Entity *entityDataOld = (Entity *) malloc((MAX_ENTITIES + 1) * sizeof(Entity));
+	Entity *entityData = (Entity *) malloc((MAX_ENTITIES + 2) * sizeof(Entity));
+	Entity *entityDataOld = (Entity *) malloc((MAX_ENTITIES + 2) * sizeof(Entity));
 
 	// initialize char
 	Entity *player = (Entity *) malloc(sizeof(Entity));
-
+	Entity *boss = (Entity *) malloc(sizeof(Entity));
 	// allocate map memory
 	game_map->screen = (char **) malloc(MAP_Y * sizeof(char *));
 	game_map->color = (char **) malloc(MAP_Y * sizeof(char *));
+
 	for (int i = 0; i < MAP_Y; i++) {
 		game_map->screen[i] = (char *) malloc(MAP_X * sizeof(char));
 		game_map->color[i] = (char *) malloc(MAP_X * sizeof(char));
 	}
 
+
 	int playerId;
 	char serverIP[30] = "127.0.0.1";
-	char name[13] = "Testificate";
+	char name[13];
 
-	/*
+
 	printf("Please enter the server IP: ");
 	scanf("%s", serverIP);
 
 	printf("Please enter your name: ");
 	scanf("%s", name);
-	*/
+	
 
 	connectToServer(serverIP);
 	sendMsgToServer(name, strlen(name) + 1);
@@ -77,12 +82,13 @@ int main() {
 	init_pair(5, COLOR_CYAN, COLOR_BLACK);
 	init_pair(6, COLOR_BLACK, COLOR_RED);
 	init_pair(7, COLOR_BLUE, COLOR_BLACK);
+	init_pair(8, COLOR_MAGENTA, COLOR_BLACK);
 
 
 	refresh();
 
 	// read the map file and save it to a map struct
-	readMap(game_map, true, false);
+	readMap(game_map, HAS_WALL);
 
 	// draw the map
 	drawMap(game_map, game_window);
@@ -93,10 +99,14 @@ int main() {
 
 	bool isWallDestroyed = false;
 
+	bool isBossAlive = false;
+
+
 	// DEBUG
 	bool quit = false;
 
 	bool gameOver = false;
+	bool youWon = false;
 
 	drawMap(game_map, game_window);
 
@@ -150,7 +160,7 @@ int main() {
 			*player = entityData[player->id];
 
 			// debug
-			mvwprintw(debug_window, 1, 2, "HEALTH: %.2d", player->hp);
+			mvwprintw(debug_window, 1, 2, "HEALTH: %.3d", player->hp);
 
 			// erase entities at previous frame
 			for (int i = 0; i < MAX_ENTITIES; i++) {
@@ -167,14 +177,27 @@ int main() {
 			// check if wall has been destroyed
 			if (!entityData[MAX_ENTITIES].isAlive && !isWallDestroyed) {
 				isWallDestroyed = true;
-				readMap(game_map, false, false);
+				isBossAlive = true;
+				readMap(game_map, NO_WALL);
 				drawMap(game_map, game_window);
+				
+			}
+		
+			if(isBossAlive){
+				*boss = entityData[MAX_ENTITIES+1];
+				mvwprintw(debug_window, 2, 2, "BOSS: %.3d", boss->hp);
 			}
 
 			if (!player->isAlive) {
-				readMap(game_map, false, true);
+				readMap(game_map, GAME_OVER);
 				drawMap(game_map, game_window);
 			}
+
+			if (!entityData[MAX_ENTITIES + 1].isAlive) {
+				readMap(game_map, YOU_WON);
+				drawMap(game_map, game_window);
+			}
+			
 			// refresh windows
 			wrefresh(game_window);
 			wrefresh(debug_window);
@@ -193,17 +216,24 @@ int main() {
 	Reads map from resource files and saves it on a Map struct
 	Only needs to be used once per initialization
 */
-void readMap(Map *map, bool hasWall, bool isGameOver) {
+void readMap(Map *map, int type) {
 	FILE *map_screen;
 	FILE *map_color = fopen("res/map_color.rtxt", "r");
 
-	if (hasWall)
+	switch (type) {
+		case HAS_WALL:
 		map_screen = fopen("res/map_screen.rtxt", "r");
-	else
+		break;
+		case NO_WALL:
 		map_screen = fopen("res/map_screen_nowall.rtxt", "r");
-	
-	if (isGameOver)
+		break;
+		case GAME_OVER:
 		map_screen = fopen("res/game_over.rtxt", "r");
+		break;
+		case YOU_WON:
+		map_screen = fopen("res/you_won.rtxt", "r");
+		break;
+	}		
 
 	for (int i = 0; i < MAP_Y; i++) {
 		fgets(map->screen[i], MAP_X, map_screen);
@@ -246,18 +276,4 @@ void redrawMapSpot(Map *map, WINDOW *window, int y, int x) {
 */
 void drawEntity(WINDOW *window, Entity entity) {
 	mvwaddch(window, entity.pos[0] + 1, entity.pos[1] + 1, entity.icon | COLOR_PAIR(entity.color));
-}
-
-/* 
-	Draws a clientside hitmark
-*/
-void drawHitmark(WINDOW *window, int y, int x) {
-	mvwaddch(window, y, x, 'X' | COLOR_PAIR(6));
-}
-
-/* 
-	Draws a clientside melee hitmark from entity position
-*/
-void drawMeleeHitmark(WINDOW *window, Entity entity, int direction) {
-	//drawHitmark();
 }

@@ -5,7 +5,7 @@
 #include <stdbool.h>
 
 // max number of entities allowed to exist
-#define MAX_ENTITIES 50
+#define MAX_ENTITIES 40
 
 // delay between each packet sent in microseconds
 #define PACKET_WAIT 33333
@@ -28,6 +28,14 @@ typedef struct map_s {
 	char **color;
 } Map;
 
+// map type constants
+enum {
+	HAS_WALL,
+	NO_WALL,
+	GAME_OVER,
+	YOU_WON
+};
+
 // direction constants
 enum {
 	UP,
@@ -49,7 +57,8 @@ enum {
 	// monster types
 	RUNNER, 	 // runs after the player
 	CASTER, 	 // stays at least 6 tiles from the player and attacks from a distance
-	BERSERK  	 // high damage, slow
+	BERSERK,  	 // high damage, slow
+	BOSS
 };
 
 // entity constants
@@ -78,7 +87,7 @@ typedef struct entity {
 							   it's an int so we can add attributes
 							   to it using ncurses */
 	unsigned char color;	// entity icon color
-	unsigned char hp;		// entity health points
+	short int hp;		// entity health points
 	char attack[3];		    /* entity attack information 
 							   0 -first arg (direction): 
 							   		-1 if entity isn't attacking.
@@ -99,7 +108,7 @@ typedef struct entity {
  */
 Entity newEntity(unsigned char type, unsigned char initPosY, unsigned char initPosX, 
 					char icon, unsigned char color, 
-					unsigned char initHp) {
+					int initHp) {
 	Entity entity;
 	entity.isAlive = true;
 	entity.pos[POS_Y] = initPosY;
@@ -117,14 +126,16 @@ Entity newEntity(unsigned char type, unsigned char initPosY, unsigned char initP
  * creates an entity with predefined aspects
  */
 Entity newMonster(unsigned char type, 
-					unsigned char initPosY, unsigned char initPosX) {
+					unsigned char initPosY, unsigned char initPosX, int waves) {
 	switch (type) {
 		case RUNNER:
-			return newEntity(RUNNER, initPosY, initPosX, 'r', 0, 5);
+			return newEntity(RUNNER, initPosY, initPosX, 'r', 0, 5 + 5 * waves);
 		case CASTER:
-			return newEntity(CASTER, initPosY, initPosX, 'c', 7, 10);
+			return newEntity(CASTER, initPosY, initPosX, 'c', 7, 10 + 5 * waves);
 		case BERSERK:
-			return newEntity(BERSERK, initPosY, initPosX, 'B', 2, 20);
+			return newEntity(BERSERK, initPosY, initPosX, 'B', 2, 20 + 5 * waves);
+		case BOSS:
+			return newEntity(BOSS, initPosY, initPosX, '%', 0, 600);
 	}
 }
 
@@ -136,13 +147,13 @@ Entity newPlayer(unsigned char type, unsigned char id,
 	Entity player;
 	switch (type) {
 		case WARRIOR:
-			player = newEntity(WARRIOR, initPosY, initPosX, 'W', 5, 30);
+			player = newEntity(WARRIOR, initPosY, initPosX, '@', 5, 150);
 			break;
 		case ARCHER:
-			player = newEntity(ARCHER, initPosY, initPosX, 'A', 4, 20);		
+			player = newEntity(ARCHER, initPosY, initPosX, 'A', 4, 80);		
 			break;
 		case CLERIC:
-			player = newEntity(CLERIC, initPosY, initPosX, 'C', 6, 20);		
+			player = newEntity(CLERIC, initPosY, initPosX, 'C', 6, 90);		
 			break;
 	}
 	player.id = id;

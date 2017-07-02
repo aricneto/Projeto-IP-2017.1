@@ -28,6 +28,7 @@ int getClosestPlayerDirectionFromReference(Entity *entity_data, int refId);
 ClosestPlayer findClosestPlayer(Entity *entity_data, Entity *entity);
 bool pathfind(Entity *entity, Entity *target, int distance);
 void destroyWall(Entity *entity_data);
+void createBoss(Entity *entity_data);
 
 // attack functions
 void attack(Entity *entity_data, int direction, int idAttacker, int reach, int damage);
@@ -43,22 +44,29 @@ typedef struct {
 // TODO: tirar variaveis globais
 bool **mapHitbox;
 int **entityHitbox;
+bool isWallDestroyed = false;
 
 
 int main(){
 	char client_names[MAX_GAME_CLIENTS][MAX_LOGIN_SIZE];
 
-	Entity *entity_data = (Entity *) calloc(MAX_ENTITIES + 1, sizeof(Entity));
+	Entity *entity_data = (Entity *) calloc(MAX_ENTITIES + 2, sizeof(Entity)); // +2 is because the wall and the boss
 	Entity *entityBuffer = (Entity *) malloc(sizeof(Entity));
 
+	//In the begining, all the entities are dead
 	for (int i = 0; i < MAX_ENTITIES; i++) {
 		entity_data[i].isAlive = 0;
 		//entity_data[i].id = i;
 	}
 
-	// last entity reserved for info about wall
+	//entity reserved for info about wall
 	entity_data[MAX_ENTITIES].isAlive = true;
+	// last entity reserved for info about boss
+	entity_data[MAX_ENTITIES+1].isAlive = false;
+	entity_data[MAX_ENTITIES+1].pos[POS_Y] = 2;
+	entity_data[MAX_ENTITIES+1].pos[POS_X] = 44;
 
+	//Allocating the pointers will be used 
 	mapHitbox = (bool **) malloc(MAP_Y * sizeof(bool *));
 	entityHitbox = (int **) malloc(MAP_Y * sizeof(int *));
 	for (int i = 0; i < MAP_Y; i++) {
@@ -72,6 +80,9 @@ int main(){
 			entityHitbox[i][j] = NO_HITBOX;
 		}
 	}
+
+	// create boss
+	entity_data[MAX_ENTITIES + 1] = newMonster(BOSS, 7, 40, 0);
 
 	readMapHitbox(mapHitbox);
 
@@ -125,12 +136,14 @@ int main(){
 				entityBuffer->pos[POS_Y] = entity_data[client_data.client_id].pos[POS_Y];
 				entityBuffer->pos[POS_X] = entity_data[client_data.client_id].pos[POS_X];
 			} else {
+				//Update entityHitbox with new info from the player
 				entityHitbox[entity_data[client_data.client_id].pos[POS_Y]][entity_data[client_data.client_id].pos[POS_X]] = NO_HITBOX;
 				entityHitbox[entityBuffer->pos[POS_Y]][entityBuffer->pos[POS_X]] = client_data.client_id;
 			}
 
+			//If there is an attack
 			if (entityBuffer->attack[ATK_DIR] >= 0) {
-				// getDamageFromAttackType() 
+
 				attack(entity_data, entityBuffer->attack[ATK_DIR], client_data.client_id, 1, 5);
 				entityBuffer->attack[ATK_DIR] = NO_ATK;
 				mvprintw(1, 0, "hit!");
@@ -152,11 +165,11 @@ int main(){
 			//destroyWall(entity_data);
 			break;
 		}
-		
+
 		refresh();
 
 		// send entity data to clients
-		broadcast(entity_data, (MAX_ENTITIES + 1) * sizeof(Entity));
+		broadcast(entity_data, (MAX_ENTITIES + 2) * sizeof(Entity));
 	}
 
 	endwin();
@@ -173,11 +186,19 @@ void *mobLogicThread(void *entityData) {
 	srand(time(NULL));
 
 	Entity *entity_data = (Entity *) entityData;
-
+	//Variable indicates how many waves were spawned
 	int waves = 0;
+	//Boolean variable indicates if the there is a wave of monsters attacking the players
 	bool isOnWave = false;
     while(true) {
         usleep(AI_DELAY);
+
+		// stop thread if boss is killed
+		if (isWallDestroyed) {
+			if (entity_data[MAX_ENTITIES + 1].isAlive == false)
+				pthread_exit((void *) entity_data);
+		}
+
 		int monstersAlive = 0;
 		int y, x, j = 0;
 		int entitiesSpawned = 0;
@@ -202,7 +223,7 @@ void *mobLogicThread(void *entityData) {
 					if (closest.distance <= 1) {
 						int closestDir = getClosestPlayerDirectionFromReference(entity_data, i);
 						if (closestDir != -1) {
-							attack(entity_data, closestDir, i, 1, 2);
+							attack(entity_data, closestDir, i, 1, 4 + (waves * 3));
 						}
 					}
 					// if entity has moved with pathfind()
@@ -220,26 +241,30 @@ void *mobLogicThread(void *entityData) {
 				//mvprintw(i + 2, 8, "id: %d", findClosestPlayer(entity_data, &entity_data[i]));
 				//mvprintw(i + 2, 14, "alive: %d", entity_data[findClosestPlayer(entity_data, &entity_data[i])].isAlive);
 			} else if ( i > MAX_CLIENTS && !entity_data[i].isAlive 
-					&& entitiesSpawned < 20 && !isOnWave) {
+					&& entitiesSpawned < 30 + (waves * 4) && !isOnWave) {
+				//Create monsters(until 20) if they don't exist(they all died or in the beginning)
+				//For each wave, the total of monsters created increases in one and it's Hp increases in five
 				int r = rand() % 20;
 				if (r < 10)
-					entity_data[i] = newMonster(RUNNER, 14, 3);
+					entity_data[i] = newMonster(RUNNER, 14, 3, waves);
 				else if (r < 16)
-					entity_data[i] = newMonster(CASTER, 17, 71);
+					entity_data[i] = newMonster(CASTER, 17, 71, waves);
 				else
-					entity_data[i] = newMonster(BERSERK, 27, 18);
+					entity_data[i] = newMonster(BERSERK, 27, 18, waves);
 				entitiesSpawned++;
 				monstersAlive++;
 			}
-			if (entitiesSpawned >= 20) {
+			if (entitiesSpawned >= 30 + (waves * 4)) {
 				isOnWave = true;
 			}
 		}
+		// if there are no monsters alive, create a new wave
 		if (monstersAlive == 0) {
 			isOnWave = false;
 			waves++;
 		}
-		if (waves == 1) {
+		// first wave done, destroy the wall 
+		if (waves == 2) {
 			destroyWall(entity_data);
 		}
     } 
@@ -422,7 +447,9 @@ void attack(Entity *entity_data, int direction, int idAttacker, int reach, int d
 			}
 			if (isPossible)
 				dealDamage(&entity_data[idTarget], damage);
-		}
+		} else if (posAtkY <= 11 && posAtkX >= 30 && posAtkX <= 54) { // attack boss
+			dealDamage(&entity_data[MAX_ENTITIES + 1], damage);
+		} 
 		// reset cooldown
 		entity_data[idAttacker].attack[ATK_CLD] = ATTACK_COOLDOWN;
 	}
@@ -454,4 +481,6 @@ void destroyWall(Entity *entity_data){
                mapHitbox[i][j] = 0;
        }
    }
+   //if the boss were not created, create it
+   isWallDestroyed = true;
 }
