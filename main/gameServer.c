@@ -9,8 +9,6 @@
 #include <unistd.h>
 #include <math.h>
 
-// TODO: implement time spent to beat game?
-
 #define MAX_LOGIN_SIZE 13
 #define MAX_GAME_CLIENTS 4
 
@@ -28,7 +26,7 @@ int getClosestPlayerDirectionFromReference(Entity *entity_data, int refId);
 ClosestPlayer findClosestPlayer(Entity *entity_data, Entity *entity);
 bool pathfind(Entity *entity, Entity *target, int distance);
 void destroyWall(Entity *entity_data);
-void createBoss(Entity *entity_data);
+//void createBoss(Entity *entity_data);
 
 // attack functions
 void attack(Entity *entity_data, int direction, int idAttacker, int reach, int damage);
@@ -41,7 +39,7 @@ typedef struct {
 } ThreadInfo;*/
 
 
-// TODO: tirar variaveis globais
+// variables
 bool **mapHitbox;
 int **entityHitbox;
 bool isWallDestroyed = false;
@@ -107,6 +105,7 @@ int main(){
 	//box(0, 0);
 
 	while(true){
+		
 		// sleeps for PACKET_WAIT microseconds every cycle
 		usleep(PACKET_WAIT);
 
@@ -261,7 +260,7 @@ void *mobLogicThread(void *entityData) {
 			isOnWave = false;
 			waves++;
 		}
-		// first wave done, destroy the wall 
+		// Second wave done, destroy the wall 
 		if (waves == 2) {
 			destroyWall(entity_data);
 		}
@@ -479,6 +478,6 @@ void destroyWall(Entity *entity_data){
                mapHitbox[i][j] = 0;
        }
    }
-   //if the boss were not created, create it
+   //Update boolean variable
    isWallDestroyed = true;
 }
