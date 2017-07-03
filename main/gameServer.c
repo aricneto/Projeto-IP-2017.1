@@ -62,9 +62,7 @@ int main(){
 	//entity reserved for info about wall
 	entity_data[MAX_ENTITIES].isAlive = true;
 	// last entity reserved for info about boss
-	entity_data[MAX_ENTITIES+1].isAlive = false;
-	entity_data[MAX_ENTITIES+1].pos[POS_Y] = 2;
-	entity_data[MAX_ENTITIES+1].pos[POS_X] = 44;
+	entity_data[MAX_ENTITIES + 1].isAlive = false;
 
 	//Allocating the pointers will be used 
 	mapHitbox = (bool **) malloc(MAP_Y * sizeof(bool *));

@@ -16,6 +16,7 @@
 // default entity attack cooldown (< 128)
 #define ATTACK_COOLDOWN 100
 
+
 // map size
 // should be screen_size + 2 to accomodate borders
 #define MAP_Y 33
@@ -34,6 +35,12 @@ enum {
 	NO_WALL,
 	GAME_OVER,
 	YOU_WON
+};
+
+// menu type consts
+enum {
+	MENU_INITIAL,
+	MENU_ENTER
 };
 
 // direction constants

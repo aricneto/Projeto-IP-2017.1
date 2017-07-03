@@ -7,14 +7,16 @@
 
 void readMap(Map *map, int type);
 void drawMap(Map *map, WINDOW *window);
+
+void readMenu(char **menu, int type);
+void drawMenu(char **menu, WINDOW *window);
+
 void drawEntity(WINDOW *window, Entity entity);
 void redrawMapSpot(Map *map, WINDOW *window, int y, int x);
-void readBoss(Map *map);
-void drawBoss(Map *map, WINDOW *window);
-
 
 int main() {
 	WINDOW *game_window;
+	WINDOW *menu_window;
 	WINDOW *debug_window;
 	Map *game_map = (Map *) malloc(sizeof(Map));
 
@@ -25,49 +27,28 @@ int main() {
 	Entity *player = (Entity *) malloc(sizeof(Entity));
 	Entity *boss = (Entity *) malloc(sizeof(Entity));
 	// allocate map memory
+	char **menu = (char **) malloc(MAP_Y * sizeof(char *));
 	game_map->screen = (char **) malloc(MAP_Y * sizeof(char *));
 	game_map->color = (char **) malloc(MAP_Y * sizeof(char *));
 
 	for (int i = 0; i < MAP_Y; i++) {
 		game_map->screen[i] = (char *) malloc(MAP_X * sizeof(char));
 		game_map->color[i] = (char *) malloc(MAP_X * sizeof(char));
+		menu[i] = (char *) malloc(MAP_X * sizeof(char));
 	}
 
-
-	int playerId;
-	char serverIP[30] = "127.0.0.1";
-	char name[13];
-
-
-	printf("Please enter the server IP: ");
-	scanf("%s", serverIP);
-
-	printf("Please enter your name: ");
-	scanf("%s", name);
-	
-
-	connectToServer(serverIP);
-	sendMsgToServer(name, strlen(name) + 1);
-	recvMsgFromServer(player, WAIT_FOR_IT);
-
-	playerId = player->id;
-	
 	// start curses
 	initscr();
-	// disable line buffering
-	cbreak();
-	// don't echo keys
-	noecho();
-	// hide cursor
-	curs_set(0);
 
 	// create a new window for the game screen
 	game_window = newwin(MAP_Y, MAP_X - 1, 0, 0);
+	menu_window = newwin(MAP_Y, MAP_X - 1, 0, 0);
 	debug_window = newwin(5, MAP_X - 1, MAP_Y, 0);
 	box(debug_window, 0, 0);
 
 	// enable special keys
 	keypad(game_window, true);
+	keypad(menu_window, true);
 	// wait for key press
 	wtimeout(game_window, 0);
 	wtimeout(debug_window, 0);
@@ -84,8 +65,36 @@ int main() {
 	init_pair(7, COLOR_BLUE, COLOR_BLACK);
 	init_pair(8, COLOR_MAGENTA, COLOR_BLACK);
 
+	// show initial menu
+	readMenu(menu, MENU_INITIAL);
+	drawMenu(menu, menu_window);
 
+	//wrefresh(menu_window);
 	refresh();
+	wgetch(menu_window);
+	
+	// show ip menu
+	readMenu(menu, MENU_ENTER);
+	drawMenu(menu, menu_window);
+	
+	int playerId;
+	char serverIP[30] = "127.0.0.1";
+	char name[13] = "player";
+
+	mvwscanw(menu_window, 12, 36, "%s", serverIP);
+
+	// disable line buffering
+	cbreak();
+	// don't echo keys
+	noecho();
+	// hide cursor
+	curs_set(0);
+
+	connectToServer(serverIP);
+	sendMsgToServer(name, strlen(name) + 1);
+	recvMsgFromServer(player, WAIT_FOR_IT);
+
+	playerId = player->id;
 
 	// read the map file and save it to a map struct
 	readMap(game_map, HAS_WALL);
@@ -210,6 +219,36 @@ int main() {
 	endwin();
 
 	return 0;
+}
+
+void readMenu(char **menu, int type) {
+	FILE *menu_file;
+	switch (type) {
+		case MENU_INITIAL:
+		menu_file = fopen("res/menu_initial.rtxt", "r");
+		break;
+		case MENU_ENTER:
+		menu_file = fopen("res/menu_enter.rtxt", "r");
+		break;
+	}
+	for (int i = 0; i < MAP_Y; i++) {
+		fgets(menu[i], MAP_X, menu_file);
+		strtok(menu[i], "\n");
+	}
+
+	fclose(menu_file);
+}
+
+void drawMenu(char **menu, WINDOW *window) {
+	for (int i = 0; i < MAP_Y - 2; i++) {
+		for (int j = 0; j < MAP_X - 3; j++) {
+			mvwaddch(window, i + 1, j + 1, menu[i][j]);
+		}
+	}
+	// surround game window with a box
+	wattron(window, COLOR_PAIR(2));
+	box(window, 0 , 0);
+	wattroff(window, COLOR_PAIR(2));
 }
 
 /*
