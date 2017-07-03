@@ -7,9 +7,7 @@ Para compilar, é necessário ter a biblioteca ncurses:
 Tendo a biblioteca, digite:  
 `make server` e, em outro terminal, `make client`
 
-# Sobre o jogo
- 
-## Objetivo  
+# Sobre o jogo 
 O objetivo do jogo é destruir o caranguejo gigante. No entanto, o caranguejo é protegido por um muro e por seus fiéis soldados (Berseks, runners e casters). 
  
 ## Número de jogadores  
