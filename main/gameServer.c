@@ -389,14 +389,27 @@ int getEntityIdFromReference(Entity *entity_data, int direction, int refId) {
 	// TODO: prevent segfault in this
 	switch(direction) {
 		case UP:
-			return entityHitbox[refY - 1][refX];
+			if (refY > 0)
+				return entityHitbox[refY - 1][refX];
+			else
+				break;
 		case DOWN:
-			return entityHitbox[refY + 1][refX];
+			if (refY < (MAP_Y - 1))
+				return entityHitbox[refY + 1][refX];
+			else
+				break;
 		case LEFT:
-			return entityHitbox[refY][refX - 1];
+			if (refX > 0)
+				return entityHitbox[refY][refX - 1];
+			else
+				break;
 		case RIGHT:
-			return entityHitbox[refY][refX + 1];
+			if (refX < (MAP_X - 1))
+				return entityHitbox[refY][refX + 1];
+			else
+				break;
 	}
+	return NO_HITBOX;
 }
 
 /*

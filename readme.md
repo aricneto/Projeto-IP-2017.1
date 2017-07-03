@@ -35,6 +35,8 @@ O guerreiro não consegue chegar ao caranguejo devido ao muro. Os monstros segue
 Destruídas as duas primeiras hordas de monstros, o muro é destruído, dando acesso do guerreiro ao caranguejo gigante.
 Vencendo o caranguejo, o jogador ganha a partida.
  
+## Saindo do jogo
+O jogador poderá sair do jogo apertando a tecla BACKSPACE.
  
  
 
